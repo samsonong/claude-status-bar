@@ -95,6 +95,7 @@ final class SessionManager: ObservableObject {
                 registrar.removeHooks(forProject: projectDir)
             }
             processDetector.unregisterProjectDir(projectDir)
+            notifiedProjectDirs.remove(projectDir)
         }
         stateFileWatcher.removeSession(id: id)
     }

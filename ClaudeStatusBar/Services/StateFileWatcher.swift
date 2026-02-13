@@ -140,6 +140,7 @@ final class StateFileWatcher: ObservableObject {
                     self.stateFile = state
                 case .corrupted:
                     Self.logger.warning("State file corrupted, recreating empty state")
+                    self.stateGeneration &+= 1
                     let emptyState = StateFile()
                     self.stateFile = emptyState
                     self.localWriteInFlight += 1

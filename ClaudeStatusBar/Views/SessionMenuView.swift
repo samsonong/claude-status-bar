@@ -46,7 +46,6 @@ struct SessionMenuView: View {
             // Quit button
             Button("Quit Claude Status Bar") {
                 sessionManager.stop()
-                sessionManager.clearAllSessions()
                 NSApplication.shared.terminate(nil)
             }
             .padding(.horizontal, 12)

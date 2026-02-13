@@ -24,7 +24,7 @@ struct HookEvent: Codable {
     /// | UserPromptSubmit   | --                               | running   |
     /// | PreToolUse         | tool_name == AskUserQuestion     | pending   |
     /// | PreToolUse         | tool_name != AskUserQuestion     | running   |
-    /// | PostToolUse        | tool_name == AskUserQuestion     | running   |
+    /// | PostToolUse        | --                               | running   |
     /// | Stop               | --                               | idle      |
     /// | SessionEnd         | --                               | (remove)  |
     var derivedStatus: SessionStatus? {

@@ -19,28 +19,13 @@ struct StatusDotsView: View {
             } else {
                 ForEach(sessions.prefix(SessionManager.maxSessions)) { session in
                     Circle()
-                        .fill(dotColor(for: session))
+                        .fill(session.dotColor)
                         .frame(width: 8, height: 8)
                         .help(tooltipText(for: session))
                 }
             }
         }
         .padding(.horizontal, 2)
-    }
-
-    private func dotColor(for session: Session) -> Color {
-        let baseColor: Color
-        switch session.status {
-        case .idle:
-            baseColor = .green
-        case .pending:
-            baseColor = .yellow
-        case .running:
-            baseColor = .blue
-        }
-
-        // Dimmed if stale
-        return session.isStale ? baseColor.opacity(0.4) : baseColor
     }
 
     private func tooltipText(for session: Session) -> String {

@@ -66,7 +66,7 @@ struct SessionMenuView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(dotColor(for: session))
+                        .fill(session.dotColor)
                         .frame(width: 8, height: 8)
 
                     Text(session.projectName)
@@ -141,16 +141,6 @@ struct SessionMenuView: View {
     }
 
     // MARK: - Helpers
-
-    private func dotColor(for session: Session) -> Color {
-        let baseColor: Color
-        switch session.status {
-        case .idle: baseColor = .green
-        case .pending: baseColor = .yellow
-        case .running: baseColor = .blue
-        }
-        return session.isStale ? baseColor.opacity(0.4) : baseColor
-    }
 
     private func isLaunchAtLoginEnabled() -> Bool {
         SMAppService.mainApp.status == .enabled

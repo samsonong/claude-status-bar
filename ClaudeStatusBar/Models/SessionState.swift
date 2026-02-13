@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Represents the current status of a Claude Code session.
 enum SessionStatus: String, Codable {
@@ -37,6 +38,17 @@ struct Session: Codable, Identifiable {
     /// Whether the session is stale (no events for more than 5 minutes).
     var isStale: Bool {
         Date().timeIntervalSince(lastUpdated) > 300
+    }
+
+    /// The dot color for this session, dimmed if stale.
+    var dotColor: Color {
+        let baseColor: Color
+        switch status {
+        case .idle: baseColor = .green
+        case .pending: baseColor = .yellow
+        case .running: baseColor = .blue
+        }
+        return isStale ? baseColor.opacity(0.4) : baseColor
     }
 
     enum CodingKeys: String, CodingKey {

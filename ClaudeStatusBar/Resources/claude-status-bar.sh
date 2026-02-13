@@ -23,15 +23,16 @@ LOCK_DIR="$STATE_FILE.lock"
 # Read the entire hook event JSON from stdin
 INPUT=$(cat)
 
-# Parse all fields in a single python3 invocation (available on all macOS systems)
+# Parse all fields in a single python3 invocation (available on all macOS systems).
+# Pass JSON via stdin to avoid ARG_MAX limits on large payloads.
 PARSED=$(/usr/bin/python3 -c "
 import sys, json
-data = json.loads(sys.argv[1])
+data = json.loads(sys.stdin.read())
 print(data.get('session_id', ''))
 print(data.get('hook_event_name', ''))
 print(data.get('cwd', ''))
 print(data.get('tool_name', ''))
-" "$INPUT" 2>/dev/null) || exit 0
+" <<< "$INPUT" 2>/dev/null) || exit 0
 
 SESSION_ID=$(echo "$PARSED" | sed -n '1p')
 HOOK_EVENT=$(echo "$PARSED" | sed -n '2p')
@@ -133,21 +134,22 @@ else
     CURRENT='{"sessions":{}}'
 fi
 
-# Update the state using python3 for reliable JSON manipulation
+# Update the state using python3 for reliable JSON manipulation.
+# Pass current state via stdin to avoid ARG_MAX limits on large state files.
 /usr/bin/python3 -c "
 import sys, json
 
 try:
-    data = json.loads(sys.argv[1])
-except (json.JSONDecodeError, IndexError):
+    data = json.loads(sys.stdin.read())
+except (json.JSONDecodeError, ValueError):
     data = {'sessions': {}}
 
-session_id = sys.argv[2]
-status = sys.argv[3]
-cwd = sys.argv[4]
-project_name = sys.argv[5]
-hook_event = sys.argv[6]
-timestamp = sys.argv[7]
+session_id = sys.argv[1]
+status = sys.argv[2]
+cwd = sys.argv[3]
+project_name = sys.argv[4]
+hook_event = sys.argv[5]
+timestamp = sys.argv[6]
 
 if 'sessions' not in data:
     data['sessions'] = {}
@@ -165,7 +167,7 @@ else:
     }
 
 json.dump(data, sys.stdout, indent=2)
-" "$CURRENT" "$SESSION_ID" "$STATUS" "$CWD" "$PROJECT_NAME" "$HOOK_EVENT" "$TIMESTAMP" > "$STATE_FILE.tmp"
+" "$SESSION_ID" "$STATUS" "$CWD" "$PROJECT_NAME" "$HOOK_EVENT" "$TIMESTAMP" <<< "$CURRENT" > "$STATE_FILE.tmp"
 
 # Atomic rename
 mv "$STATE_FILE.tmp" "$STATE_FILE"

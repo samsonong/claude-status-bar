@@ -65,6 +65,11 @@ final class ProcessDetector: ObservableObject {
         registeredProjectDirs.insert(projectDir)
     }
 
+    /// Removes a project directory from the registered set so it can be re-detected.
+    func unregisterProjectDir(_ projectDir: String) {
+        registeredProjectDirs.remove(projectDir)
+    }
+
     /// Updates known PIDs from currently tracked sessions.
     func updateFromTrackedSessions(_ sessions: [String: Session]) {
         for session in sessions.values {

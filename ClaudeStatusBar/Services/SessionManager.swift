@@ -82,6 +82,7 @@ final class SessionManager: ObservableObject {
             hookQueue.async {
                 registrar.removeHooks(forProject: projectDir)
             }
+            processDetector.unregisterProjectDir(projectDir)
         }
         stateFileWatcher.removeSession(id: id)
     }

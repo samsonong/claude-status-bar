@@ -59,22 +59,22 @@ final class StateFileWatcher: ObservableObject {
     }
 
     /// Removes a session from the state file and writes it back.
+    /// Must be called on the main thread.
     func removeSession(id: String) {
+        dispatchPrecondition(condition: .onQueue(.main))
         var state = stateFile
         state.sessions.removeValue(forKey: id)
         writeStateFile(state)
-        DispatchQueue.main.async {
-            self.stateFile = state
-        }
+        stateFile = state
     }
 
     /// Clears all sessions from the state file.
+    /// Must be called on the main thread.
     func clearAllSessions() {
+        dispatchPrecondition(condition: .onQueue(.main))
         let emptyState = StateFile()
         writeStateFile(emptyState)
-        DispatchQueue.main.async {
-            self.stateFile = emptyState
-        }
+        stateFile = emptyState
     }
 
     // MARK: - Private

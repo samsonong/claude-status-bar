@@ -37,9 +37,11 @@ struct ClaudeStatusBarApp: App {
 }
 
 /// App delegate to handle notification responses and app lifecycle.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     /// Shared reference set by the App struct during init.
     /// Using a static because NSApplicationDelegateAdaptor creates its own instance.
+    /// Access is restricted to the main actor for thread safety.
     static var sharedSessionManager: SessionManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {

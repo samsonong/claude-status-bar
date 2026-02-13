@@ -1,0 +1,13 @@
+CLAUDE.md
+.claude/agents
+
+# Xcode
+build/
+DerivedData/
+*.xcuserdata/
+xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~

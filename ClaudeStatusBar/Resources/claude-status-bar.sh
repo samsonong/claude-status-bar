@@ -94,15 +94,21 @@ acquire_lock() {
             # Check if the lock holder is still alive
             local lock_pid
             lock_pid=$(cat "$LOCK_DIR/pid" 2>/dev/null)
-            if [ -n "$lock_pid" ] && kill -0 "$lock_pid" 2>/dev/null; then
+            if [ -z "$lock_pid" ]; then
+                # PID file missing — lock was just acquired by another process; give up
+                return 1
+            fi
+            if kill -0 "$lock_pid" 2>/dev/null; then
                 # Lock holder is still running — give up
                 return 1
             fi
             # Stale lock (holder is dead) — remove and retry once
             rm -rf "$LOCK_DIR"
-            mkdir "$LOCK_DIR" 2>/dev/null || return 1
-            echo $$ > "$LOCK_DIR/pid"
-            return 0
+            if mkdir "$LOCK_DIR" 2>/dev/null; then
+                echo $$ > "$LOCK_DIR/pid"
+                return 0
+            fi
+            return 1
         fi
         sleep "$delay"
         delay=$(echo "$delay * 2" | bc)

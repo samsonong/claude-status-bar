@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 /// Represents a detected Claude Code process.
-struct DetectedProcess: Equatable {
+struct DetectedProcess: Equatable, Sendable {
     let pid: Int32
     let projectDir: String
 }
@@ -10,34 +10,31 @@ struct DetectedProcess: Equatable {
 /// Polls the system for running `claude` processes to detect new Claude Code instances.
 /// When a new process is found that isn't already tracked, it publishes a notification
 /// so the app can prompt the user to register hooks.
+@MainActor
 final class ProcessDetector: ObservableObject {
     /// Newly detected Claude Code processes that aren't yet tracked.
     @Published private(set) var newProcesses: [DetectedProcess] = []
 
     /// PIDs that have already been seen (prompted or tracked).
-    /// Access must be synchronized via `stateQueue`.
     private var knownPIDs: Set<Int32> = []
 
     /// Project directories that already have hooks registered.
-    /// Access must be synchronized via `stateQueue`.
     private var registeredProjectDirs: Set<String> = []
 
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 5.0
     private let pollQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.ProcessDetector", qos: .utility)
-    /// Serial queue protecting access to `knownPIDs` and `registeredProjectDirs`.
-    private let stateQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.ProcessDetector.state")
 
     func startPolling() {
         // Initial poll
         pollQueue.async { [weak self] in
-            self?.poll()
+            self?.pollInBackground()
         }
 
         // Schedule recurring polls
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.pollQueue.async {
-                self?.poll()
+                self?.pollInBackground()
             }
         }
     }
@@ -49,51 +46,53 @@ final class ProcessDetector: ObservableObject {
 
     /// Marks a PID as known so it won't be reported again.
     func acknowledge(pid: Int32) {
-        stateQueue.sync { knownPIDs.insert(pid) }
+        knownPIDs.insert(pid)
         newProcesses.removeAll { $0.pid == pid }
     }
 
     /// Marks a project directory as having hooks registered.
     func markRegistered(projectDir: String) {
-        stateQueue.sync { registeredProjectDirs.insert(projectDir) }
+        registeredProjectDirs.insert(projectDir)
     }
 
     /// Updates known PIDs from currently tracked sessions.
     func updateFromTrackedSessions(_ sessions: [String: Session]) {
-        stateQueue.sync {
-            for session in sessions.values {
-                registeredProjectDirs.insert(session.projectDir)
-            }
+        for session in sessions.values {
+            registeredProjectDirs.insert(session.projectDir)
         }
     }
 
     // MARK: - Private
 
-    private func poll() {
+    /// Called from the background poll queue. Finds processes then dispatches
+    /// the filtering and publishing step back to the main actor.
+    private nonisolated func pollInBackground() {
         let processes = findClaudeProcesses()
 
-        let detected: [DetectedProcess] = stateQueue.sync {
-            var result: [DetectedProcess] = []
-            for process in processes {
-                if !knownPIDs.contains(process.pid) && !registeredProjectDirs.contains(process.projectDir) {
-                    result.append(process)
-                    // Don't add to knownPIDs yet — wait for user acknowledgment
-                }
-            }
-
-            // Clean up knownPIDs for processes that no longer exist
-            let activePIDs = Set(processes.map(\.pid))
-            knownPIDs = knownPIDs.intersection(activePIDs)
-
-            return result
-        }
-
-        DispatchQueue.main.async {
-            self.newProcesses = detected
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyPollResults(processes)
         }
     }
 
-    private func findClaudeProcesses() -> [DetectedProcess] {
+    /// Filters and publishes poll results. Must run on main actor.
+    private func applyPollResults(_ processes: [DetectedProcess]) {
+        var result: [DetectedProcess] = []
+        for process in processes {
+            if !knownPIDs.contains(process.pid) && !registeredProjectDirs.contains(process.projectDir) {
+                result.append(process)
+                // Don't add to knownPIDs yet — wait for user acknowledgment
+            }
+        }
+
+        // Clean up knownPIDs for processes that no longer exist
+        let activePIDs = Set(processes.map(\.pid))
+        knownPIDs = knownPIDs.intersection(activePIDs)
+
+        newProcesses = result
+    }
+
+    private nonisolated func findClaudeProcesses() -> [DetectedProcess] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/ps")
         task.arguments = ["-eo", "pid,command"]
@@ -142,7 +141,7 @@ final class ProcessDetector: ObservableObject {
         return results
     }
 
-    private func getWorkingDirectory(pid: Int32) -> String? {
+    private nonisolated func getWorkingDirectory(pid: Int32) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
         task.arguments = ["-p", "\(pid)", "-Fn", "-d", "cwd"]

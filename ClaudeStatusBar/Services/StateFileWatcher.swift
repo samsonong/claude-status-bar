@@ -91,7 +91,10 @@ final class StateFileWatcher: ObservableObject {
 
     // MARK: - Private
 
-    private func openAndMonitor() {
+    /// Maximum number of retries when the state file does not yet exist.
+    private static let maxOpenRetries = 30
+
+    private func openAndMonitor(retryCount: Int = 0) {
         // Close existing if any
         if fileDescriptor >= 0 {
             close(fileDescriptor)
@@ -99,9 +102,10 @@ final class StateFileWatcher: ObservableObject {
 
         fileDescriptor = open(stateFilePath, O_EVTONLY)
         guard fileDescriptor >= 0 else {
-            // File doesn't exist yet; retry after a delay
+            // File doesn't exist yet; retry after a delay (up to maxOpenRetries)
+            guard retryCount < Self.maxOpenRetries else { return }
             queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                self?.openAndMonitor()
+                self?.openAndMonitor(retryCount: retryCount + 1)
             }
             return
         }
@@ -153,8 +157,11 @@ final class StateFileWatcher: ObservableObject {
         generationLock.unlock()
 
         guard let data = fileManager.contents(atPath: stateFilePath) else {
-            DispatchQueue.main.async {
-                guard self.stateGeneration == capturedGeneration else { return }
+            DispatchQueue.main.async { [self] in
+                self.generationLock.lock()
+                let current = self.stateGeneration
+                self.generationLock.unlock()
+                guard current == capturedGeneration else { return }
                 self.stateFile = StateFile()
             }
             return
@@ -165,16 +172,22 @@ final class StateFileWatcher: ObservableObject {
 
         do {
             let state = try decoder.decode(StateFile.self, from: data)
-            DispatchQueue.main.async {
-                guard self.stateGeneration == capturedGeneration else { return }
+            DispatchQueue.main.async { [self] in
+                self.generationLock.lock()
+                let current = self.stateGeneration
+                self.generationLock.unlock()
+                guard current == capturedGeneration else { return }
                 self.stateFile = state
             }
         } catch {
             // JSON corrupted — recreate with empty state
             let emptyState = StateFile()
             writeStateFile(emptyState)
-            DispatchQueue.main.async {
-                guard self.stateGeneration == capturedGeneration else { return }
+            DispatchQueue.main.async { [self] in
+                self.generationLock.lock()
+                let current = self.stateGeneration
+                self.generationLock.unlock()
+                guard current == capturedGeneration else { return }
                 self.stateFile = emptyState
             }
         }

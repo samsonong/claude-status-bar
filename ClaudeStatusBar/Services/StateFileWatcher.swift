@@ -16,7 +16,6 @@ final class StateFileWatcher: ObservableObject {
     init() {
         let homeDir = fileManager.homeDirectoryForCurrentUser.path
         stateFilePath = "\(homeDir)/.claude/claude-status-bar.json"
-        startWatching()
     }
 
     deinit {

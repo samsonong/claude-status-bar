@@ -157,7 +157,8 @@ final class StateFileWatcher: ObservableObject {
         generationLock.unlock()
 
         guard let data = fileManager.contents(atPath: stateFilePath) else {
-            DispatchQueue.main.async { [self] in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
                 self.generationLock.lock()
                 let current = self.stateGeneration
                 self.generationLock.unlock()
@@ -172,7 +173,8 @@ final class StateFileWatcher: ObservableObject {
 
         do {
             let state = try decoder.decode(StateFile.self, from: data)
-            DispatchQueue.main.async { [self] in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
                 self.generationLock.lock()
                 let current = self.stateGeneration
                 self.generationLock.unlock()
@@ -183,7 +185,8 @@ final class StateFileWatcher: ObservableObject {
             // JSON corrupted — recreate with empty state
             let emptyState = StateFile()
             writeStateFile(emptyState)
-            DispatchQueue.main.async { [self] in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
                 self.generationLock.lock()
                 let current = self.stateGeneration
                 self.generationLock.unlock()

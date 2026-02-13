@@ -5,6 +5,7 @@ import UserNotifications
 /// Orchestrates Claude Code session tracking. Coordinates between the
 /// StateFileWatcher, ProcessDetector, and HookRegistrar to manage up to
 /// 5 concurrent sessions.
+@MainActor
 final class SessionManager: ObservableObject {
     /// Currently tracked sessions, ordered by last_updated (most recent first).
     @Published private(set) var sessions: [Session] = []

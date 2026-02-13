@@ -23,6 +23,8 @@ final class SessionManager: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var staleCheckTimer: Timer?
+    /// Project directories for which a notification is already pending (user hasn't responded yet).
+    private var notifiedProjectDirs: Set<String> = []
 
     init() {
         self.stateFileWatcher = StateFileWatcher()
@@ -57,11 +59,13 @@ final class SessionManager: ObservableObject {
         }
         processDetector.acknowledge(pid: process.pid)
         processDetector.markRegistered(projectDir: process.projectDir)
+        notifiedProjectDirs.remove(process.projectDir)
     }
 
     /// Dismisses a detected process without registering hooks.
     func dismissProcess(_ process: DetectedProcess) {
         processDetector.acknowledge(pid: process.pid)
+        notifiedProjectDirs.remove(process.projectDir)
     }
 
     /// Clears all sessions from the state file.
@@ -115,6 +119,10 @@ final class SessionManager: ObservableObject {
                         continue
                     }
 
+                    // Don't send duplicate notifications for the same project dir
+                    // (e.g., when a process restarts with a new PID)
+                    guard !self.notifiedProjectDirs.contains(process.projectDir) else { continue }
+                    self.notifiedProjectDirs.insert(process.projectDir)
                     self.sendNotification(for: process)
                 }
             }

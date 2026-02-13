@@ -195,7 +195,17 @@ final class StateFileWatcher: ObservableObject {
         // Atomic write: write to temp file then rename
         let tempPath = stateFilePath + ".tmp"
         fileManager.createFile(atPath: tempPath, contents: data)
-        try? fileManager.replaceItemAt(URL(fileURLWithPath: stateFilePath), withItemAt: URL(fileURLWithPath: tempPath))
+        do {
+            if fileManager.fileExists(atPath: stateFilePath) {
+                _ = try fileManager.replaceItemAt(URL(fileURLWithPath: stateFilePath), withItemAt: URL(fileURLWithPath: tempPath))
+            } else {
+                try fileManager.moveItem(atPath: tempPath, toPath: stateFilePath)
+            }
+        } catch {
+            // Fallback: remove existing and move temp into place
+            try? fileManager.removeItem(atPath: stateFilePath)
+            try? fileManager.moveItem(atPath: tempPath, toPath: stateFilePath)
+        }
     }
 
     /// Acquires a directory-based lock consistent with the shell script's locking scheme.

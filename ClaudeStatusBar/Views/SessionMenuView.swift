@@ -23,9 +23,9 @@ struct SessionMenuView: View {
             }
 
             // New process notifications
-            if !sessionManager.processDetector.newProcesses.isEmpty {
+            if !sessionManager.newProcesses.isEmpty {
                 Divider()
-                ForEach(sessionManager.processDetector.newProcesses, id: \.pid) { process in
+                ForEach(sessionManager.newProcesses, id: \.pid) { process in
                     newProcessRow(process)
                 }
             }
@@ -46,7 +46,7 @@ struct SessionMenuView: View {
             // Quit button
             Button("Quit Claude Status Bar") {
                 sessionManager.stop()
-                sessionManager.stateFileWatcher.clearAllSessions()
+                sessionManager.clearAllSessions()
                 NSApplication.shared.terminate(nil)
             }
             .padding(.horizontal, 12)

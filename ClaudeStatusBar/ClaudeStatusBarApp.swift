@@ -66,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationWillTerminate(_ notification: Notification) {
         Self.sharedSessionManager?.stop()
-        Self.sharedSessionManager?.stateFileWatcher.clearAllSessions()
+        Self.sharedSessionManager?.clearAllSessions()
     }
 
     // MARK: - UNUserNotificationCenterDelegate

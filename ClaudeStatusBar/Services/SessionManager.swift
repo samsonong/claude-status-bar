@@ -12,9 +12,12 @@ final class SessionManager: ObservableObject {
     /// Maximum number of tracked sessions.
     static let maxSessions = 5
 
-    let stateFileWatcher: StateFileWatcher
-    let processDetector: ProcessDetector
-    let hookRegistrar: HookRegistrar
+    /// Newly detected Claude Code processes that aren't yet tracked.
+    @Published private(set) var newProcesses: [DetectedProcess] = []
+
+    private let stateFileWatcher: StateFileWatcher
+    private let processDetector: ProcessDetector
+    private let hookRegistrar: HookRegistrar
 
     private var cancellables = Set<AnyCancellable>()
     private var staleCheckTimer: Timer?
@@ -55,6 +58,11 @@ final class SessionManager: ObservableObject {
         processDetector.acknowledge(pid: process.pid)
     }
 
+    /// Clears all sessions from the state file.
+    func clearAllSessions() {
+        stateFileWatcher.clearAllSessions()
+    }
+
     /// Untracks a session, removing it from the state file and optionally
     /// cleaning up hooks.
     func untrackSession(id: String) {
@@ -80,11 +88,12 @@ final class SessionManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Handle newly detected processes
+        // Forward newly detected processes and handle them
         processDetector.$newProcesses
             .receive(on: DispatchQueue.main)
             .sink { [weak self] processes in
                 guard let self else { return }
+                self.newProcesses = processes
                 for process in processes {
                     // Don't prompt if we're at max sessions
                     guard self.sessions.count < Self.maxSessions else { break }

@@ -10,16 +10,29 @@
 		040B9F6D0040D1DBC8C3A805 /* SessionMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206E590F2654AAED0A404724 /* SessionMenuView.swift */; };
 		06E48BA3F2BF6344B0F8EC4A /* SessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C01CEB87210ED4E9810454 /* SessionState.swift */; };
 		6B7D793B407B43E454742B0C /* HookEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E99A16DEE471E8819858157 /* HookEvent.swift */; };
+		75133CE907CC29AA7F3D1419 /* StateFileParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */; };
 		A4E1ADF75EF52EBCFBBAE20E /* HookRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BDFC1618A1EFA640DD51E0A /* HookRegistrar.swift */; };
 		AFF9779E28BC0526DB92932B /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B72B221C9BA6DC3770107E1 /* SessionManager.swift */; };
 		CA49DBE896F7312FBB05B847 /* StatusDotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C141D93C8F56C93F912B48 /* StatusDotsView.swift */; };
 		D11C1D10317E13D34531DC89 /* StateFileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D6D0B3410B89105C9000AF /* StateFileWatcher.swift */; };
 		D573FA5C7F0F7DF4D150031D /* ClaudeStatusBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B04ABEC24B746FC171886C /* ClaudeStatusBarApp.swift */; };
+		D5D6223F0D44EFFD2237C23B /* HookEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD703793B9D2627936D8EEDE /* HookEventTests.swift */; };
 		DFBB5E67958D3E43E1203701 /* ProcessDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597CE2998B250F432E78116E /* ProcessDetector.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		7FEB771AB1BF2BD9FB414809 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F881BB91E7F0EF0AFC0F640B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4873D88CA951FDA500BACC4F;
+			remoteInfo = ClaudeStatusBar;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		00C141D93C8F56C93F912B48 /* StatusDotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDotsView.swift; sourceTree = "<group>"; };
+		0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateFileParsingTests.swift; sourceTree = "<group>"; };
 		03D6D0B3410B89105C9000AF /* StateFileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateFileWatcher.swift; sourceTree = "<group>"; };
 		206E590F2654AAED0A404724 /* SessionMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMenuView.swift; sourceTree = "<group>"; };
 		39A6B9E93C1A3D602C30EBEB /* ClaudeStatusBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeStatusBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -29,6 +42,8 @@
 		7E99A16DEE471E8819858157 /* HookEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEvent.swift; sourceTree = "<group>"; };
 		85C01CEB87210ED4E9810454 /* SessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionState.swift; sourceTree = "<group>"; };
 		C5B04ABEC24B746FC171886C /* ClaudeStatusBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeStatusBarApp.swift; sourceTree = "<group>"; };
+		CD703793B9D2627936D8EEDE /* HookEventTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEventTests.swift; sourceTree = "<group>"; };
+		D2A2C8BD74F4CB622D0C6545 /* ClaudeStatusBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaudeStatusBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -36,6 +51,7 @@
 			isa = PBXGroup;
 			children = (
 				39A6B9E93C1A3D602C30EBEB /* ClaudeStatusBar.app */,
+				D2A2C8BD74F4CB622D0C6545 /* ClaudeStatusBarTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -44,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				F4AC65AB17F99870CFA7B655 /* ClaudeStatusBar */,
+				A37CD6A573D252F826221333 /* ClaudeStatusBarTests */,
 				0C33804CB4F9EAEDBC3ACD31 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +83,15 @@
 				00C141D93C8F56C93F912B48 /* StatusDotsView.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		A37CD6A573D252F826221333 /* ClaudeStatusBarTests */ = {
+			isa = PBXGroup;
+			children = (
+				CD703793B9D2627936D8EEDE /* HookEventTests.swift */,
+				0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */,
+			);
+			path = ClaudeStatusBarTests;
 			sourceTree = "<group>";
 		};
 		B6C72EDECB1A0FE6ACD9EBC0 /* Models */ = {
@@ -108,6 +134,24 @@
 			productReference = 39A6B9E93C1A3D602C30EBEB /* ClaudeStatusBar.app */;
 			productType = "com.apple.product-type.application";
 		};
+		7D34610209DEED05CE6A05BB /* ClaudeStatusBarTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A8532EE5FD081E3FF54B9B66 /* Build configuration list for PBXNativeTarget "ClaudeStatusBarTests" */;
+			buildPhases = (
+				ECA86DC1A7717B465372A8D5 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				18E6A766498CA85C7A8A0B80 /* PBXTargetDependency */,
+			);
+			name = ClaudeStatusBarTests;
+			packageProductDependencies = (
+			);
+			productName = ClaudeStatusBarTests;
+			productReference = D2A2C8BD74F4CB622D0C6545 /* ClaudeStatusBarTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -132,6 +176,7 @@
 			projectRoot = "";
 			targets = (
 				4873D88CA951FDA500BACC4F /* ClaudeStatusBar */,
+				7D34610209DEED05CE6A05BB /* ClaudeStatusBarTests */,
 			);
 		};
 /* End PBXProject section */
@@ -153,9 +198,64 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ECA86DC1A7717B465372A8D5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5D6223F0D44EFFD2237C23B /* HookEventTests.swift in Sources */,
+				75133CE907CC29AA7F3D1419 /* StateFileParsingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		18E6A766498CA85C7A8A0B80 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4873D88CA951FDA500BACC4F /* ClaudeStatusBar */;
+			targetProxy = 7FEB771AB1BF2BD9FB414809 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		69E7686B0573CE2152697915 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.samsonong.ClaudeStatusBarTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Claude Status Bar.app/Contents/MacOS/Claude Status Bar";
+			};
+			name = Release;
+		};
+		9DB70F6AF03B8F82FF7B79DD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.samsonong.ClaudeStatusBarTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Claude Status Bar.app/Contents/MacOS/Claude Status Bar";
+			};
+			name = Debug;
+		};
 		C577FE34E8B2F648F3DB523E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -325,6 +425,15 @@
 			buildConfigurations = (
 				F4B9FC61F5B85D7939D01AEB /* Debug */,
 				EA83774A21DC414A33B60063 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A8532EE5FD081E3FF54B9B66 /* Build configuration list for PBXNativeTarget "ClaudeStatusBarTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB70F6AF03B8F82FF7B79DD /* Debug */,
+				69E7686B0573CE2152697915 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

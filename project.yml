@@ -37,3 +37,18 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         LSUIElement: true
         NSHumanReadableCopyright: "Copyright 2025. All rights reserved."
+  ClaudeStatusBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: ClaudeStatusBarTests
+    dependencies:
+      - target: ClaudeStatusBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.samsonong.ClaudeStatusBarTests
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: false
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Claude Status Bar.app/Contents/MacOS/Claude Status Bar"
+        BUNDLE_LOADER: "$(TEST_HOST)"

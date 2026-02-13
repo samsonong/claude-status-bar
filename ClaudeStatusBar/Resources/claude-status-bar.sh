@@ -101,24 +101,33 @@ acquire_lock() {
     while ! mkdir "$LOCK_DIR" 2>/dev/null; do
         attempt=$((attempt + 1))
         if [ "$attempt" -ge "$max_attempts" ]; then
-            # Stale lock — remove and retry once
+            # Check if the lock holder is still alive
+            local lock_pid
+            lock_pid=$(cat "$LOCK_DIR/pid" 2>/dev/null)
+            if [ -n "$lock_pid" ] && kill -0 "$lock_pid" 2>/dev/null; then
+                # Lock holder is still running — give up
+                return 1
+            fi
+            # Stale lock (holder is dead) — remove and retry once
             rm -rf "$LOCK_DIR"
             mkdir "$LOCK_DIR" 2>/dev/null || return 1
+            echo $$ > "$LOCK_DIR/pid"
             return 0
         fi
         sleep "$delay"
         delay=$(echo "$delay * 2" | bc)
     done
+    echo $$ > "$LOCK_DIR/pid"
 }
 
 release_lock() {
     rm -rf "$LOCK_DIR"
 }
 
-# Ensure lock is released on exit
-trap release_lock EXIT
-
 acquire_lock || exit 1
+
+# Set trap AFTER successful lock acquisition to avoid releasing another process's lock
+trap release_lock EXIT
 
 # Read the current state file, or start with an empty state
 if [ -f "$STATE_FILE" ]; then

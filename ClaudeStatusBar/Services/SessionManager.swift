@@ -133,9 +133,13 @@ final class SessionManager: ObservableObject {
         staleCheckTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
             DispatchQueue.main.async {
-                // Remove stale sessions from the state file so they don't
+                // Remove stale idle sessions from the state file so they don't
                 // permanently occupy slots toward the max 5 limit.
-                let staleIDs = self.sessions.filter(\.isStale).map(\.id)
+                // Only auto-remove idle sessions — running/pending sessions may
+                // be in a long tool execution without hook events.
+                let staleIDs = self.sessions
+                    .filter { $0.isStale && $0.status == .idle }
+                    .map(\.id)
                 for id in staleIDs {
                     self.stateFileWatcher.removeSession(id: id)
                 }

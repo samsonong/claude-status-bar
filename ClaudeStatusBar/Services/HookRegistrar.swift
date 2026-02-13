@@ -51,7 +51,9 @@ final class HookRegistrar {
             settingsPath = globalSettingsPath
         }
 
-        return mergeHooks(intoSettingsAt: settingsPath)
+        return withSettingsLock(for: settingsPath) {
+            mergeHooks(intoSettingsAt: settingsPath)
+        }
     }
 
     /// Removes hooks for a project from the appropriate settings file.
@@ -63,9 +65,13 @@ final class HookRegistrar {
 
         // Try removing from project-level first, then global
         if fileManager.fileExists(atPath: projectSettingsPath) {
-            removeHooks(fromSettingsAt: projectSettingsPath)
+            withSettingsLock(for: projectSettingsPath) {
+                removeHooks(fromSettingsAt: projectSettingsPath)
+            }
         }
-        removeHooks(fromSettingsAt: globalSettingsPath)
+        withSettingsLock(for: globalSettingsPath) {
+            removeHooks(fromSettingsAt: globalSettingsPath)
+        }
     }
 
     /// Checks whether hooks are already registered for a project.
@@ -107,6 +113,32 @@ final class HookRegistrar {
     }
 
     // MARK: - Private
+
+    /// Executes a closure while holding an exclusive lock on the given settings file.
+    /// Uses directory-based locking (mkdir is atomic) consistent with the shell script.
+    private func withSettingsLock<T>(for path: String, body: () -> T) -> T {
+        let lockDir = path + ".lock"
+        var acquired = false
+        var attempts = 0
+        let maxAttempts = 10
+
+        while !acquired && attempts < maxAttempts {
+            acquired = mkdir(lockDir, 0o755) == 0
+            if !acquired {
+                attempts += 1
+                usleep(useconds_t(10_000 * (1 << min(attempts, 5)))) // exponential backoff
+            }
+        }
+
+        if !acquired {
+            // Force-remove potentially stale lock and retry once
+            try? fileManager.removeItem(atPath: lockDir)
+            _ = mkdir(lockDir, 0o755)
+        }
+
+        defer { try? fileManager.removeItem(atPath: lockDir) }
+        return body()
+    }
 
     private func globalSettingsFilePath() -> String {
         let homeDir = fileManager.homeDirectoryForCurrentUser.path

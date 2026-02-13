@@ -102,12 +102,14 @@ final class ProcessDetector: ObservableObject {
 
         do {
             try task.run()
-            task.waitUntilExit()
         } catch {
             return []
         }
 
+        // Read pipe data BEFORE waitUntilExit to avoid deadlock when output
+        // exceeds the pipe buffer size.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
         guard let output = String(data: data, encoding: .utf8) else { return [] }
 
         var results: [DetectedProcess] = []
@@ -151,12 +153,14 @@ final class ProcessDetector: ObservableObject {
 
         do {
             try task.run()
-            task.waitUntilExit()
         } catch {
             return nil
         }
 
+        // Read pipe data BEFORE waitUntilExit to avoid deadlock when output
+        // exceeds the pipe buffer size.
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
         guard let output = String(data: data, encoding: .utf8) else { return nil }
 
         // lsof output format: lines starting with 'n' contain the path

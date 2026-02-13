@@ -72,6 +72,12 @@ final class ProcessDetector: ObservableObject {
         newProcesses.removeAll { $0.pid == pid }
     }
 
+    /// Reverts a previous acknowledge so the PID can be re-detected.
+    /// Used when hook registration fails and the user should be re-prompted.
+    func unacknowledge(pid: Int32) {
+        knownPIDs.remove(pid)
+    }
+
     /// Marks a project directory as having hooks registered.
     func markRegistered(projectDir: String) {
         registeredProjectDirs.insert(projectDir)

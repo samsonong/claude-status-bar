@@ -62,6 +62,7 @@ final class SessionManager: ObservableObject {
             if !success {
                 DispatchQueue.main.async {
                     detector.unregisterProjectDir(projectDir)
+                    detector.unacknowledge(pid: process.pid)
                     self?.notifiedProjectDirs.remove(projectDir)
                 }
             }
@@ -120,6 +121,11 @@ final class SessionManager: ObservableObject {
             .sink { [weak self] processes in
                 guard let self else { return }
                 self.newProcesses = processes
+                // Prune notifiedProjectDirs: only keep dirs that still have
+                // active processes, so dismissed projects can be re-prompted
+                // after their Claude process exits and a new one starts.
+                let activeProjectDirs = Set(processes.map(\.projectDir))
+                self.notifiedProjectDirs = self.notifiedProjectDirs.intersection(activeProjectDirs)
                 let candidates = processes.filter { process in
                     self.sessions.count < Self.maxSessions
                         && !self.notifiedProjectDirs.contains(process.projectDir)

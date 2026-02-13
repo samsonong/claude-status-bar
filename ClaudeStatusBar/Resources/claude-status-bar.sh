@@ -130,8 +130,13 @@ release_lock() {
 
 acquire_lock || exit 0
 
-# Set trap AFTER successful lock acquisition to avoid releasing another process's lock
-trap release_lock EXIT
+# Set trap AFTER successful lock acquisition to avoid releasing another process's lock.
+# Also clean up any orphaned temp file.
+cleanup() {
+    rm -f "$STATE_FILE.tmp"
+    release_lock
+}
+trap cleanup EXIT
 
 # Read the current state file, or start with an empty state
 if [ -f "$STATE_FILE" ]; then

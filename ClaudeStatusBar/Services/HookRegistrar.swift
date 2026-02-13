@@ -28,10 +28,12 @@ final class HookRegistrar: @unchecked Sendable {
     /// The marker comment used to identify our hook entries.
     static let hookMarker = "claude-status-bar"
 
-    /// Path to the bundled hook script, or the installed path.
-    private var hookScriptPath: String {
-        let homeDir = fileManager.homeDirectoryForCurrentUser.path
-        return "\(homeDir)/.claude/hooks/claude-status-bar.sh"
+    /// Path to the installed hook script.
+    private let hookScriptPath: String
+
+    init() {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        hookScriptPath = "\(homeDir)/.claude/hooks/claude-status-bar.sh"
     }
 
     // MARK: - Public API

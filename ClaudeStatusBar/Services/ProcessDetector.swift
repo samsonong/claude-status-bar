@@ -15,14 +15,18 @@ final class ProcessDetector: ObservableObject {
     @Published private(set) var newProcesses: [DetectedProcess] = []
 
     /// PIDs that have already been seen (prompted or tracked).
+    /// Access must be synchronized via `stateQueue`.
     private var knownPIDs: Set<Int32> = []
 
     /// Project directories that already have hooks registered.
+    /// Access must be synchronized via `stateQueue`.
     private var registeredProjectDirs: Set<String> = []
 
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 5.0
     private let pollQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.ProcessDetector", qos: .utility)
+    /// Serial queue protecting access to `knownPIDs` and `registeredProjectDirs`.
+    private let stateQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.ProcessDetector.state")
 
     func startPolling() {
         // Initial poll
@@ -45,19 +49,21 @@ final class ProcessDetector: ObservableObject {
 
     /// Marks a PID as known so it won't be reported again.
     func acknowledge(pid: Int32) {
-        knownPIDs.insert(pid)
+        stateQueue.sync { knownPIDs.insert(pid) }
         newProcesses.removeAll { $0.pid == pid }
     }
 
     /// Marks a project directory as having hooks registered.
     func markRegistered(projectDir: String) {
-        registeredProjectDirs.insert(projectDir)
+        stateQueue.sync { registeredProjectDirs.insert(projectDir) }
     }
 
     /// Updates known PIDs from currently tracked sessions.
     func updateFromTrackedSessions(_ sessions: [String: Session]) {
-        for session in sessions.values {
-            registeredProjectDirs.insert(session.projectDir)
+        stateQueue.sync {
+            for session in sessions.values {
+                registeredProjectDirs.insert(session.projectDir)
+            }
         }
     }
 
@@ -66,17 +72,21 @@ final class ProcessDetector: ObservableObject {
     private func poll() {
         let processes = findClaudeProcesses()
 
-        var detected: [DetectedProcess] = []
-        for process in processes {
-            if !knownPIDs.contains(process.pid) && !registeredProjectDirs.contains(process.projectDir) {
-                detected.append(process)
-                // Don't add to knownPIDs yet — wait for user acknowledgment
+        let detected: [DetectedProcess] = stateQueue.sync {
+            var result: [DetectedProcess] = []
+            for process in processes {
+                if !knownPIDs.contains(process.pid) && !registeredProjectDirs.contains(process.projectDir) {
+                    result.append(process)
+                    // Don't add to knownPIDs yet — wait for user acknowledgment
+                }
             }
-        }
 
-        // Clean up knownPIDs for processes that no longer exist
-        let activePIDs = Set(processes.map(\.pid))
-        knownPIDs = knownPIDs.intersection(activePIDs)
+            // Clean up knownPIDs for processes that no longer exist
+            let activePIDs = Set(processes.map(\.pid))
+            knownPIDs = knownPIDs.intersection(activePIDs)
+
+            return result
+        }
 
         DispatchQueue.main.async {
             self.newProcesses = detected

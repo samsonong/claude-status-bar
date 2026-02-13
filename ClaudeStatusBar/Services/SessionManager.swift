@@ -108,22 +108,33 @@ final class SessionManager: ObservableObject {
             .sink { [weak self] processes in
                 guard let self else { return }
                 self.newProcesses = processes
-                for process in processes {
-                    // Don't prompt if we're at max sessions
-                    guard self.sessions.count < Self.maxSessions else { continue }
+                let candidates = processes.filter { process in
+                    self.sessions.count < Self.maxSessions
+                        && !self.notifiedProjectDirs.contains(process.projectDir)
+                }
+                guard !candidates.isEmpty else { return }
+                let registrar = self.hookRegistrar
+                let detector = self.processDetector
+                self.hookQueue.async { [weak self] in
+                    for process in candidates {
+                        // Don't prompt if hooks are already registered
+                        if registrar.hasHooksRegistered(forProject: process.projectDir) {
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self else { return }
+                                detector.acknowledge(pid: process.pid)
+                                detector.markRegistered(projectDir: process.projectDir)
+                            }
+                            continue
+                        }
 
-                    // Don't prompt if hooks are already registered
-                    if self.hookRegistrar.hasHooksRegistered(forProject: process.projectDir) {
-                        self.processDetector.acknowledge(pid: process.pid)
-                        self.processDetector.markRegistered(projectDir: process.projectDir)
-                        continue
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self else { return }
+                            // Re-check after async hop to avoid races
+                            guard !self.notifiedProjectDirs.contains(process.projectDir) else { return }
+                            self.notifiedProjectDirs.insert(process.projectDir)
+                            self.sendNotification(for: process)
+                        }
                     }
-
-                    // Don't send duplicate notifications for the same project dir
-                    // (e.g., when a process restarts with a new PID)
-                    guard !self.notifiedProjectDirs.contains(process.projectDir) else { continue }
-                    self.notifiedProjectDirs.insert(process.projectDir)
-                    self.sendNotification(for: process)
                 }
             }
             .store(in: &cancellables)

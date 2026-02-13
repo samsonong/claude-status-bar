@@ -167,7 +167,7 @@ final class StateFileWatcher: ObservableObject {
         // Acquire the same mkdir-based lock used by the shell script
         let lockDir = stateFilePath + ".lock"
         guard acquireLock(at: lockDir) else { return }
-        defer { try? fileManager.removeItem(atPath: lockDir) }
+        defer { releaseLock(at: lockDir) }
 
         // Atomic write: write to temp file then rename
         let tempPath = stateFilePath + ".tmp"
@@ -176,6 +176,7 @@ final class StateFileWatcher: ObservableObject {
     }
 
     /// Acquires a directory-based lock consistent with the shell script's locking scheme.
+    /// Writes a PID file inside the lock directory so other processes can check liveness.
     private func acquireLock(at lockDir: String) -> Bool {
         var acquired = false
         var attempts = 0
@@ -190,11 +191,31 @@ final class StateFileWatcher: ObservableObject {
         }
 
         if !acquired {
-            // Force-remove potentially stale lock and retry once
+            // Check if the lock holder is still alive before force-removing
+            let pidFile = (lockDir as NSString).appendingPathComponent("pid")
+            if let pidStr = try? String(contentsOfFile: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+               let lockPID = Int32(pidStr) {
+                if kill(lockPID, 0) == 0 {
+                    // Lock holder is still running — give up
+                    return false
+                }
+            }
+            // Stale lock (holder is dead or no PID file) — remove and retry once
             try? fileManager.removeItem(atPath: lockDir)
             acquired = mkdir(lockDir, 0o755) == 0
         }
 
+        if acquired {
+            // Write our PID so other processes can check liveness
+            let pidFile = (lockDir as NSString).appendingPathComponent("pid")
+            try? "\(ProcessInfo.processInfo.processIdentifier)".write(toFile: pidFile, atomically: false, encoding: .utf8)
+        }
+
         return acquired
+    }
+
+    /// Releases the directory-based lock by removing the lock directory.
+    private func releaseLock(at lockDir: String) {
+        try? fileManager.removeItem(atPath: lockDir)
     }
 }

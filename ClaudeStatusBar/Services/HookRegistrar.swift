@@ -116,6 +116,7 @@ final class HookRegistrar {
 
     /// Executes a closure while holding an exclusive lock on the given settings file.
     /// Uses directory-based locking (mkdir is atomic) consistent with the shell script.
+    /// Writes a PID file inside the lock directory so other processes can check liveness.
     /// Returns nil if the lock cannot be acquired.
     @discardableResult
     private func withSettingsLock<T>(for path: String, body: () -> T) -> T? {
@@ -133,12 +134,25 @@ final class HookRegistrar {
         }
 
         if !acquired {
-            // Force-remove potentially stale lock and retry once
+            // Check if the lock holder is still alive before force-removing
+            let pidFile = (lockDir as NSString).appendingPathComponent("pid")
+            if let pidStr = try? String(contentsOfFile: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
+               let lockPID = Int32(pidStr) {
+                if kill(lockPID, 0) == 0 {
+                    // Lock holder is still running — give up
+                    return nil
+                }
+            }
+            // Stale lock (holder is dead or no PID file) — remove and retry once
             try? fileManager.removeItem(atPath: lockDir)
             acquired = mkdir(lockDir, 0o755) == 0
         }
 
         guard acquired else { return nil }
+
+        // Write our PID so other processes can check liveness
+        let pidFile = (lockDir as NSString).appendingPathComponent("pid")
+        try? "\(ProcessInfo.processInfo.processIdentifier)".write(toFile: pidFile, atomically: false, encoding: .utf8)
 
         defer { try? fileManager.removeItem(atPath: lockDir) }
         return body()

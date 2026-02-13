@@ -26,14 +26,17 @@ final class ProcessDetector: ObservableObject {
     private let pollQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.ProcessDetector", qos: .utility)
 
     func startPolling() {
+        let queue = pollQueue
+
         // Initial poll
-        pollQueue.async { [weak self] in
+        queue.async { [weak self] in
             self?.pollInBackground()
         }
 
-        // Schedule recurring polls
+        // Schedule recurring polls — capture pollQueue locally to avoid
+        // accessing @MainActor-isolated self from the Timer's @Sendable closure.
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
-            self?.pollQueue.async {
+            queue.async {
                 self?.pollInBackground()
             }
         }

@@ -1,23 +1,25 @@
 import Foundation
 import Combine
+import os
 
 /// Watches the state file at ~/.claude/claude-status-bar.json for changes
 /// using a DispatchSource file descriptor monitor. Publishes the parsed
 /// StateFile whenever the file is modified.
+@MainActor
 final class StateFileWatcher: ObservableObject {
     @Published private(set) var stateFile: StateFile = StateFile()
 
+    private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "StateFileWatcher")
     private let stateFilePath: String
     private var fileDescriptor: Int32 = -1
     private var dispatchSource: DispatchSourceFileSystemObject?
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.StateFileWatcher", qos: .userInitiated)
 
-    /// Generation counter incremented on every main-thread mutation (removeSession/clearAllSessions).
-    /// Used to detect stale async dispatches from readStateFile().
-    /// Protected by generationLock for cross-queue access.
+    /// Generation counter incremented on every main-actor mutation (removeSession/clearAllSessions).
+    /// Used to detect stale async dispatches from background reads.
+    /// No lock needed — @MainActor guarantees serial access.
     private var stateGeneration: UInt64 = 0
-    private let generationLock = NSLock()
 
     init() {
         let homeDir = fileManager.homeDirectoryForCurrentUser.path
@@ -25,7 +27,7 @@ final class StateFileWatcher: ObservableObject {
     }
 
     deinit {
-        stopWatching()
+        dispatchSource?.cancel()
     }
 
     /// Starts monitoring the state file for changes.
@@ -48,7 +50,7 @@ final class StateFileWatcher: ObservableObject {
         }
 
         // Do initial read
-        readStateFile()
+        triggerRead()
 
         // Open the file for monitoring
         openAndMonitor()
@@ -58,19 +60,12 @@ final class StateFileWatcher: ObservableObject {
     func stopWatching() {
         dispatchSource?.cancel()
         dispatchSource = nil
-        if fileDescriptor >= 0 {
-            close(fileDescriptor)
-            fileDescriptor = -1
-        }
+        fileDescriptor = -1
     }
 
     /// Removes a session from the state file and writes it back.
-    /// Must be called on the main thread.
     func removeSession(id: String) {
-        dispatchPrecondition(condition: .onQueue(.main))
-        generationLock.lock()
         stateGeneration &+= 1
-        generationLock.unlock()
         var state = stateFile
         state.sessions.removeValue(forKey: id)
         writeStateFile(state)
@@ -78,12 +73,8 @@ final class StateFileWatcher: ObservableObject {
     }
 
     /// Clears all sessions from the state file.
-    /// Must be called on the main thread.
     func clearAllSessions() {
-        dispatchPrecondition(condition: .onQueue(.main))
-        generationLock.lock()
         stateGeneration &+= 1
-        generationLock.unlock()
         let emptyState = StateFile()
         writeStateFile(emptyState)
         stateFile = emptyState
@@ -94,106 +85,106 @@ final class StateFileWatcher: ObservableObject {
     /// Maximum number of retries when the state file does not yet exist.
     private static let maxOpenRetries = 30
 
+    /// Dispatches a file read to the background queue, then updates stateFile on main actor.
+    private func triggerRead() {
+        let capturedGeneration = stateGeneration
+        let path = stateFilePath
+        queue.async { [weak self] in
+            let result = StateFileWatcher.readAndParse(at: path)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.stateGeneration == capturedGeneration else { return }
+                switch result {
+                case .parsed(let state):
+                    self.stateFile = state
+                case .corrupted:
+                    Self.logger.warning("State file corrupted, recreating empty state")
+                    let emptyState = StateFile()
+                    self.writeStateFile(emptyState)
+                    self.stateFile = emptyState
+                case .missing:
+                    self.stateFile = StateFile()
+                }
+            }
+        }
+    }
+
+    private enum ReadResult: Sendable {
+        case parsed(StateFile)
+        case corrupted
+        case missing
+    }
+
+    nonisolated private static func readAndParse(at path: String) -> ReadResult {
+        guard let data = FileManager.default.contents(atPath: path) else {
+            return .missing
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        do {
+            return .parsed(try decoder.decode(StateFile.self, from: data))
+        } catch {
+            return .corrupted
+        }
+    }
+
     private func openAndMonitor(retryCount: Int = 0) {
         // Close existing if any
         if fileDescriptor >= 0 {
             close(fileDescriptor)
+            fileDescriptor = -1
         }
 
-        fileDescriptor = open(stateFilePath, O_EVTONLY)
-        guard fileDescriptor >= 0 else {
+        let fd = open(stateFilePath, O_EVTONLY)
+        guard fd >= 0 else {
             // File doesn't exist yet; retry after a delay (up to maxOpenRetries)
             guard retryCount < Self.maxOpenRetries else { return }
             queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                self?.openAndMonitor(retryCount: retryCount + 1)
+                DispatchQueue.main.async { [weak self] in
+                    self?.openAndMonitor(retryCount: retryCount + 1)
+                }
             }
             return
         }
 
+        fileDescriptor = fd
+
         let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fileDescriptor,
+            fileDescriptor: fd,
             eventMask: [.write, .rename, .delete],
             queue: queue
         )
 
         source.setEventHandler { [weak self] in
-            guard let self else { return }
             let flags = source.data
             if flags.contains(.delete) || flags.contains(.rename) {
                 // File was deleted or renamed (atomic write pattern).
-                // Re-open and re-monitor.
-                self.dispatchSource?.cancel()
-                close(self.fileDescriptor)
-                self.fileDescriptor = -1
-                // Small delay to allow the new file to appear
-                self.queue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.readStateFile()
-                    self?.openAndMonitor()
+                // Cancel this source (cancel handler closes the fd), then re-open.
+                source.cancel()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.dispatchSource = nil
+                    self.fileDescriptor = -1
+                    // Small delay to allow the new file to appear
+                    self.queue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                        DispatchQueue.main.async { [weak self] in
+                            self?.triggerRead()
+                            self?.openAndMonitor()
+                        }
+                    }
                 }
             } else {
-                self.readStateFile()
+                DispatchQueue.main.async { [weak self] in
+                    self?.triggerRead()
+                }
             }
         }
 
-        source.setCancelHandler { [weak self] in
-            guard let self else { return }
-            if self.fileDescriptor >= 0 {
-                close(self.fileDescriptor)
-                self.fileDescriptor = -1
-            }
+        source.setCancelHandler {
+            close(fd)
         }
 
         dispatchSource = source
         source.resume()
-    }
-
-    private func readStateFile() {
-        // Capture the generation before reading so we can detect stale dispatches.
-        // If removeSession/clearAllSessions runs between the file read and the
-        // main-queue dispatch, the generation will have changed and we skip the
-        // stale update.
-        generationLock.lock()
-        let capturedGeneration = stateGeneration
-        generationLock.unlock()
-
-        guard let data = fileManager.contents(atPath: stateFilePath) else {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.generationLock.lock()
-                let current = self.stateGeneration
-                self.generationLock.unlock()
-                guard current == capturedGeneration else { return }
-                self.stateFile = StateFile()
-            }
-            return
-        }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        do {
-            let state = try decoder.decode(StateFile.self, from: data)
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.generationLock.lock()
-                let current = self.stateGeneration
-                self.generationLock.unlock()
-                guard current == capturedGeneration else { return }
-                self.stateFile = state
-            }
-        } catch {
-            // JSON corrupted — recreate with empty state
-            let emptyState = StateFile()
-            writeStateFile(emptyState)
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.generationLock.lock()
-                let current = self.stateGeneration
-                self.generationLock.unlock()
-                guard current == capturedGeneration else { return }
-                self.stateFile = emptyState
-            }
-        }
     }
 
     private func writeStateFile(_ state: StateFile) {
@@ -205,7 +196,10 @@ final class StateFileWatcher: ObservableObject {
 
         // Acquire the same mkdir-based lock used by the shell script
         let lockDir = stateFilePath + ".lock"
-        guard acquireLock(at: lockDir) else { return }
+        guard acquireLock(at: lockDir) else {
+            Self.logger.warning("Failed to acquire lock for state file write")
+            return
+        }
         defer { releaseLock(at: lockDir) }
 
         // Atomic write: write to temp file then rename
@@ -218,7 +212,7 @@ final class StateFileWatcher: ObservableObject {
                 try fileManager.moveItem(atPath: tempPath, toPath: stateFilePath)
             }
         } catch {
-            // Fallback: remove existing and move temp into place
+            Self.logger.warning("replaceItemAt failed, using fallback: \(error.localizedDescription)")
             try? fileManager.removeItem(atPath: stateFilePath)
             try? fileManager.moveItem(atPath: tempPath, toPath: stateFilePath)
         }

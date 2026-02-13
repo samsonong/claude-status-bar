@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Represents the current status of a Claude Code session.
-enum SessionStatus: String, Codable {
+enum SessionStatus: String, Codable, Sendable {
     case idle
     case pending
     case running
@@ -27,7 +27,7 @@ enum SessionStatus: String, Codable {
 }
 
 /// A single tracked Claude Code session.
-struct Session: Codable, Identifiable {
+struct Session: Codable, Identifiable, Sendable {
     let id: String
     var status: SessionStatus
     var projectDir: String
@@ -62,7 +62,7 @@ struct Session: Codable, Identifiable {
 }
 
 /// The root structure of the state file at ~/.claude/claude-status-bar.json.
-struct StateFile: Codable {
+struct StateFile: Codable, Sendable {
     var sessions: [String: Session]
 
     init(sessions: [String: Session] = [:]) {

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import os
 
 /// Represents a detected Claude Code process.
 struct DetectedProcess: Equatable, Sendable {
@@ -12,6 +13,8 @@ struct DetectedProcess: Equatable, Sendable {
 /// so the app can prompt the user to register hooks.
 @MainActor
 final class ProcessDetector: ObservableObject {
+    nonisolated private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "ProcessDetector")
+
     /// Newly detected Claude Code processes that aren't yet tracked.
     @Published private(set) var newProcesses: [DetectedProcess] = []
 
@@ -96,7 +99,7 @@ final class ProcessDetector: ObservableObject {
         newProcesses = result
     }
 
-    private static func findClaudeProcesses() -> [DetectedProcess] {
+    nonisolated private static func findClaudeProcesses() -> [DetectedProcess] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/ps")
         task.arguments = ["-eo", "pid,command"]
@@ -108,6 +111,7 @@ final class ProcessDetector: ObservableObject {
         do {
             try task.run()
         } catch {
+            logger.warning("Failed to run ps: \(error.localizedDescription)")
             return []
         }
 
@@ -124,20 +128,23 @@ final class ProcessDetector: ObservableObject {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
 
-            // Match lines containing "claude" that look like a Claude Code process.
-            // Claude Code runs as a Node.js process; the command typically contains
-            // the path to the claude CLI binary.
-            // We look for processes whose command contains "/claude" (the CLI binary path)
-            // but exclude this app's own process and common false positives.
-            guard trimmed.contains("/claude") || trimmed.hasSuffix(" claude") else { continue }
-            // Exclude our own app
-            guard !trimmed.contains("ClaudeStatusBar") else { continue }
-            // Exclude grep/ps artifacts
-            guard !trimmed.contains("grep") && !trimmed.contains("/bin/ps") else { continue }
-
             let components = trimmed.split(separator: " ", maxSplits: 1)
             guard components.count == 2,
                   let pid = Int32(components[0]) else { continue }
+
+            // Match lines containing the Claude CLI binary specifically.
+            // Claude Code runs as a Node.js process; the command typically looks like:
+            //   /path/to/node /path/to/claude --args
+            //   claude --args
+            // We use a regex to match the binary name "claude" as a whole word (not as a
+            // substring of "claude-desktop", "ClaudeStatusBar", etc.).
+            let command = String(components[1])
+            guard command.range(of: #"(?:^|/)claude(?:\s|$)"#, options: .regularExpression) != nil else { continue }
+            // Exclude our own app, grep/ps artifacts, and Claude Desktop
+            guard !command.contains("ClaudeStatusBar")
+                    && !command.contains("Claude Desktop")
+                    && !command.contains("grep")
+                    && !command.contains("/bin/ps") else { continue }
 
             // Try to determine the working directory via lsof
             let projectDir = getWorkingDirectory(pid: pid) ?? "Unknown"
@@ -147,7 +154,7 @@ final class ProcessDetector: ObservableObject {
         return results
     }
 
-    private static func getWorkingDirectory(pid: Int32) -> String? {
+    nonisolated private static func getWorkingDirectory(pid: Int32) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
         task.arguments = ["-p", "\(pid)", "-Fn", "-d", "cwd"]

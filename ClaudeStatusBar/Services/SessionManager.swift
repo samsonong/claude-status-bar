@@ -120,8 +120,7 @@ final class SessionManager: ObservableObject {
                     for process in candidates {
                         // Don't prompt if hooks are already registered
                         if registrar.hasHooksRegistered(forProject: process.projectDir) {
-                            DispatchQueue.main.async { [weak self] in
-                                guard let self else { return }
+                            DispatchQueue.main.async {
                                 detector.acknowledge(pid: process.pid)
                                 detector.markRegistered(projectDir: process.projectDir)
                             }

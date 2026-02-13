@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // MARK: - UNUserNotificationCenterDelegate
 
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
@@ -86,20 +86,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         let pid = Int32(pidNumber.intValue)
         let process = DetectedProcess(pid: pid, projectDir: projectDir)
+        let actionId = response.actionIdentifier
 
-        switch response.actionIdentifier {
-        case "TRACK", UNNotificationDefaultActionIdentifier:
-            Self.sharedSessionManager?.registerAndTrack(process: process)
-        case "DISMISS":
-            Self.sharedSessionManager?.dismissProcess(process)
-        default:
-            break
+        DispatchQueue.main.async {
+            switch actionId {
+            case "TRACK", UNNotificationDefaultActionIdentifier:
+                Self.sharedSessionManager?.registerAndTrack(process: process)
+            case "DISMISS":
+                Self.sharedSessionManager?.dismissProcess(process)
+            default:
+                break
+            }
         }
 
         completionHandler()
     }
 
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void

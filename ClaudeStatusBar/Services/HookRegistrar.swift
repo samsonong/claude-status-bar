@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Manages registration and removal of Claude Code hooks in settings.json files.
 /// Hooks are entries in the `hooks` object of either `~/.claude/settings.json` (global)
@@ -6,7 +7,8 @@ import Foundation
 ///
 /// The registrar merges hook entries without overwriting existing hooks for
 /// the same event names — it appends to the existing arrays.
-final class HookRegistrar {
+final class HookRegistrar: @unchecked Sendable {
+    private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "HookRegistrar")
     private let fileManager = FileManager.default
 
     /// The hook events that the status bar app needs to monitor.
@@ -51,9 +53,15 @@ final class HookRegistrar {
             settingsPath = globalSettingsPath
         }
 
-        return withSettingsLock(for: settingsPath) {
+        let result = withSettingsLock(for: settingsPath) {
             mergeHooks(intoSettingsAt: settingsPath)
         } ?? false
+        if result {
+            Self.logger.info("Registered hooks for project: \(projectDir)")
+        } else {
+            Self.logger.warning("Failed to register hooks for project: \(projectDir)")
+        }
+        return result
     }
 
     /// Removes hooks for a project from the appropriate settings file.

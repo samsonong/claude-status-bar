@@ -17,6 +17,11 @@
 
 set -euo pipefail
 
+# Verify python3 is available (ships with macOS since Catalina)
+if [ ! -x /usr/bin/python3 ]; then
+    exit 0
+fi
+
 STATE_FILE="$HOME/.claude/claude-status-bar.json"
 LOCK_DIR="$STATE_FILE.lock"
 
@@ -122,7 +127,7 @@ release_lock() {
     rm -rf "$LOCK_DIR"
 }
 
-acquire_lock || exit 1
+acquire_lock || exit 0
 
 # Set trap AFTER successful lock acquisition to avoid releasing another process's lock
 trap release_lock EXIT

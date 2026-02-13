@@ -28,13 +28,18 @@ final class ProcessDetector: ObservableObject {
     private let pollInterval: TimeInterval = 5.0
     private let pollQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.ProcessDetector", qos: .utility)
 
+    /// Cache of PID -> working directory to avoid spawning lsof on every poll.
+    /// Cleaned when PIDs disappear from poll results.
+    private var cwdCache: [Int32: String] = [:]
+
     func startPolling() {
         let queue = pollQueue
 
         // Initial poll — call the static helper directly to avoid crossing
         // @MainActor isolation through `self` on the background queue.
+        let cache = cwdCache
         queue.async { [weak self] in
-            let processes = ProcessDetector.findClaudeProcesses()
+            let processes = ProcessDetector.findClaudeProcesses(cwdCache: cache)
             DispatchQueue.main.async {
                 self?.applyPollResults(processes)
             }
@@ -43,10 +48,14 @@ final class ProcessDetector: ObservableObject {
         // Schedule recurring polls — capture pollQueue locally to avoid
         // accessing @MainActor-isolated self from the Timer's @Sendable closure.
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
-            queue.async {
-                let processes = ProcessDetector.findClaudeProcesses()
-                DispatchQueue.main.async {
-                    self?.applyPollResults(processes)
+            // Capture the cache snapshot on the main thread before dispatching to background
+            DispatchQueue.main.async { [weak self] in
+                let currentCache = self?.cwdCache ?? [:]
+                queue.async {
+                    let processes = ProcessDetector.findClaudeProcesses(cwdCache: currentCache)
+                    DispatchQueue.main.async {
+                        self?.applyPollResults(processes)
+                    }
                 }
             }
         }
@@ -92,14 +101,20 @@ final class ProcessDetector: ObservableObject {
             }
         }
 
-        // Clean up knownPIDs for processes that no longer exist
+        // Clean up knownPIDs and cwd cache for processes that no longer exist
         let activePIDs = Set(processes.map(\.pid))
         knownPIDs = knownPIDs.intersection(activePIDs)
+        cwdCache = cwdCache.filter { activePIDs.contains($0.key) }
+
+        // Update cache with newly resolved directories
+        for process in processes {
+            cwdCache[process.pid] = process.projectDir
+        }
 
         newProcesses = result
     }
 
-    nonisolated private static func findClaudeProcesses() -> [DetectedProcess] {
+    nonisolated private static func findClaudeProcesses(cwdCache: [Int32: String]) -> [DetectedProcess] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/ps")
         task.arguments = ["-eo", "pid,command"]
@@ -146,8 +161,8 @@ final class ProcessDetector: ObservableObject {
                     && !command.contains("grep")
                     && !command.contains("/bin/ps") else { continue }
 
-            // Try to determine the working directory via lsof
-            let projectDir = getWorkingDirectory(pid: pid) ?? "Unknown"
+            // Use cached working directory if available, otherwise call lsof
+            let projectDir = cwdCache[pid] ?? getWorkingDirectory(pid: pid) ?? "Unknown"
             results.append(DetectedProcess(pid: pid, projectDir: projectDir))
         }
 

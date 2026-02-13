@@ -21,13 +21,22 @@ final class StateFileWatcher: ObservableObject {
     /// No lock needed — @MainActor guarantees serial access.
     private var stateGeneration: UInt64 = 0
 
+    /// Counter tracking how many local writes are currently in-flight on the background queue.
+    /// When > 0, DispatchSource-triggered reads are suppressed to prevent our own disk writes
+    /// from overwriting in-memory state with stale data.
+    private var localWriteInFlight: Int = 0
+
     init() {
         let homeDir = fileManager.homeDirectoryForCurrentUser.path
         stateFilePath = "\(homeDir)/.claude/claude-status-bar.json"
     }
 
     deinit {
-        dispatchSource?.cancel()
+        if let source = dispatchSource {
+            source.cancel() // cancel handler closes the fd
+        } else if fileDescriptor >= 0 {
+            close(fileDescriptor)
+        }
     }
 
     /// Starts monitoring the state file for changes.
@@ -46,8 +55,13 @@ final class StateFileWatcher: ObservableObject {
         // Create the file if it doesn't exist
         if !fileManager.fileExists(atPath: stateFilePath) {
             let emptyState = StateFile()
+            localWriteInFlight += 1
             queue.async { [weak self] in
                 self?.writeStateFile(emptyState)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.localWriteInFlight -= 1
+                }
             }
         }
 
@@ -76,9 +90,15 @@ final class StateFileWatcher: ObservableObject {
         var state = stateFile
         state.sessions.removeValue(forKey: id)
         stateFile = state
-        // Write to disk on background queue to avoid blocking main actor
+        // Write to disk on background queue to avoid blocking main actor.
+        // Suppress DispatchSource-triggered reads until write completes.
+        localWriteInFlight += 1
         queue.async { [weak self] in
             self?.writeStateFile(state)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.localWriteInFlight -= 1
+            }
         }
     }
 
@@ -87,9 +107,15 @@ final class StateFileWatcher: ObservableObject {
         stateGeneration &+= 1
         let emptyState = StateFile()
         stateFile = emptyState
-        // Write to disk on background queue to avoid blocking main actor
+        // Write to disk on background queue to avoid blocking main actor.
+        // Suppress DispatchSource-triggered reads until write completes.
+        localWriteInFlight += 1
         queue.async { [weak self] in
             self?.writeStateFile(emptyState)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.localWriteInFlight -= 1
+            }
         }
     }
 
@@ -99,7 +125,10 @@ final class StateFileWatcher: ObservableObject {
     private static let maxOpenRetries = 30
 
     /// Dispatches a file read to the background queue, then updates stateFile on main actor.
+    /// Skipped when a local write is in-flight to prevent our own disk writes from
+    /// overwriting newer in-memory state with stale data.
     private func triggerRead() {
+        guard localWriteInFlight == 0 else { return }
         let capturedGeneration = stateGeneration
         let path = stateFilePath
         queue.async { [weak self] in
@@ -113,8 +142,13 @@ final class StateFileWatcher: ObservableObject {
                     Self.logger.warning("State file corrupted, recreating empty state")
                     let emptyState = StateFile()
                     self.stateFile = emptyState
+                    self.localWriteInFlight += 1
                     self.queue.async { [weak self] in
                         self?.writeStateFile(emptyState)
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self else { return }
+                            self.localWriteInFlight -= 1
+                        }
                     }
                 case .missing:
                     self.stateFile = StateFile()
@@ -230,8 +264,10 @@ final class StateFileWatcher: ObservableObject {
             }
         } catch {
             Self.logger.warning("replaceItemAt failed, using fallback: \(error.localizedDescription)")
-            try? fm.removeItem(atPath: stateFilePath)
-            try? fm.moveItem(atPath: tempPath, toPath: stateFilePath)
+            // Write directly as last resort — don't remove existing file first
+            // to avoid a window where the state file is missing.
+            try? data.write(to: URL(fileURLWithPath: stateFilePath))
+            try? fm.removeItem(atPath: tempPath)
         }
     }
 

@@ -118,9 +118,12 @@ final class HookRegistrar: @unchecked Sendable {
             do {
                 try fileManager.copyItem(at: bundledScript, to: URL(fileURLWithPath: tempPath))
                 try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tempPath)
-                // Atomic replace: only remove old script after new one is ready
-                try? fileManager.removeItem(atPath: targetPath)
-                try fileManager.moveItem(atPath: tempPath, toPath: targetPath)
+                // Atomic replace using replaceItemAt (no window where the script is missing)
+                if fileManager.fileExists(atPath: targetPath) {
+                    _ = try fileManager.replaceItemAt(URL(fileURLWithPath: targetPath), withItemAt: URL(fileURLWithPath: tempPath))
+                } else {
+                    try fileManager.moveItem(atPath: tempPath, toPath: targetPath)
+                }
             } catch {
                 Self.logger.warning("Failed to install hook script: \(error.localizedDescription)")
                 try? fileManager.removeItem(atPath: tempPath)
@@ -259,6 +262,8 @@ final class HookRegistrar: @unchecked Sendable {
     }
 
     /// Checks if our hooks exist in the given settings file.
+    /// Returns true only if ALL monitored events have our hook registered,
+    /// to detect partial registration from interrupted writes or manual edits.
     private func checkHooksExist(inSettingsAt path: String) -> Bool {
         guard let data = fileManager.contents(atPath: path),
               let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -266,17 +271,13 @@ final class HookRegistrar: @unchecked Sendable {
             return false
         }
 
-        // Check if at least one of our events has our hook
-        for eventName in Self.monitoredEvents {
-            guard let eventHooks = hooks[eventName] as? [[String: Any]] else { continue }
-            let hasOurHook = eventHooks.contains { entry in
+        return Self.monitoredEvents.allSatisfy { eventName in
+            guard let eventHooks = hooks[eventName] as? [[String: Any]] else { return false }
+            return eventHooks.contains { entry in
                 guard let command = entry["command"] as? String else { return false }
                 return command.contains(Self.hookMarker)
             }
-            if hasOurHook { return true }
         }
-
-        return false
     }
 
     @discardableResult

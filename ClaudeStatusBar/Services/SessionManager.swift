@@ -51,11 +51,20 @@ final class SessionManager: ObservableObject {
     }
 
     /// Registers hooks for a project and starts tracking it.
+    /// If hook registration fails, reverts the registration state so the user
+    /// can retry when the process is next detected.
     func registerAndTrack(process: DetectedProcess) {
         let registrar = hookRegistrar
         let projectDir = process.projectDir
-        hookQueue.async {
-            registrar.registerHooks(forProject: projectDir)
+        let detector = processDetector
+        hookQueue.async { [weak self] in
+            let success = registrar.registerHooks(forProject: projectDir)
+            if !success {
+                DispatchQueue.main.async {
+                    detector.unregisterProjectDir(projectDir)
+                    self?.notifiedProjectDirs.remove(projectDir)
+                }
+            }
         }
         processDetector.acknowledge(pid: process.pid)
         processDetector.markRegistered(projectDir: process.projectDir)
@@ -63,9 +72,11 @@ final class SessionManager: ObservableObject {
     }
 
     /// Dismisses a detected process without registering hooks.
+    /// Keeps the project dir in notifiedProjectDirs to prevent re-prompting
+    /// while the same process is still running. The entry is cleaned up
+    /// naturally when the process exits and knownPIDs is pruned.
     func dismissProcess(_ process: DetectedProcess) {
         processDetector.acknowledge(pid: process.pid)
-        notifiedProjectDirs.remove(process.projectDir)
     }
 
     /// Clears all sessions from the state file.

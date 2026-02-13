@@ -88,6 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let process = DetectedProcess(pid: pid, projectDir: projectDir)
         let actionId = response.actionIdentifier
 
+        // Call completion handler immediately so the system can finish notification handling,
+        // then dispatch the actual work to the main actor.
+        completionHandler()
+
         DispatchQueue.main.async {
             switch actionId {
             case "TRACK", UNNotificationDefaultActionIdentifier:
@@ -97,7 +101,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             default:
                 break
             }
-            completionHandler()
         }
     }
 

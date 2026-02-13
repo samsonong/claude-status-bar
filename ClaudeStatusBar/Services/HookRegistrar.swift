@@ -45,7 +45,7 @@ final class HookRegistrar {
         let globalSettingsPath = globalSettingsFilePath()
 
         let settingsPath: String
-        if fileManager.fileExists(atPath: "\(projectDir)/.claude") {
+        if fileManager.fileExists(atPath: projectSettingsPath) {
             settingsPath = projectSettingsPath
         } else {
             settingsPath = globalSettingsPath

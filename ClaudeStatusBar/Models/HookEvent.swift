@@ -39,9 +39,6 @@ struct HookEvent: Codable {
             }
             return .running
         case "PostToolUse":
-            if toolName == "AskUserQuestion" {
-                return .running
-            }
             return .running
         case "Stop":
             return .idle

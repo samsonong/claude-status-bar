@@ -13,6 +13,12 @@ final class StateFileWatcher: ObservableObject {
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.StateFileWatcher", qos: .userInitiated)
 
+    /// Generation counter incremented on every main-thread mutation (removeSession/clearAllSessions).
+    /// Used to detect stale async dispatches from readStateFile().
+    /// Protected by generationLock for cross-queue access.
+    private var stateGeneration: UInt64 = 0
+    private let generationLock = NSLock()
+
     init() {
         let homeDir = fileManager.homeDirectoryForCurrentUser.path
         stateFilePath = "\(homeDir)/.claude/claude-status-bar.json"
@@ -62,6 +68,9 @@ final class StateFileWatcher: ObservableObject {
     /// Must be called on the main thread.
     func removeSession(id: String) {
         dispatchPrecondition(condition: .onQueue(.main))
+        generationLock.lock()
+        stateGeneration &+= 1
+        generationLock.unlock()
         var state = stateFile
         state.sessions.removeValue(forKey: id)
         writeStateFile(state)
@@ -72,6 +81,9 @@ final class StateFileWatcher: ObservableObject {
     /// Must be called on the main thread.
     func clearAllSessions() {
         dispatchPrecondition(condition: .onQueue(.main))
+        generationLock.lock()
+        stateGeneration &+= 1
+        generationLock.unlock()
         let emptyState = StateFile()
         writeStateFile(emptyState)
         stateFile = emptyState
@@ -132,8 +144,17 @@ final class StateFileWatcher: ObservableObject {
     }
 
     private func readStateFile() {
+        // Capture the generation before reading so we can detect stale dispatches.
+        // If removeSession/clearAllSessions runs between the file read and the
+        // main-queue dispatch, the generation will have changed and we skip the
+        // stale update.
+        generationLock.lock()
+        let capturedGeneration = stateGeneration
+        generationLock.unlock()
+
         guard let data = fileManager.contents(atPath: stateFilePath) else {
             DispatchQueue.main.async {
+                guard self.stateGeneration == capturedGeneration else { return }
                 self.stateFile = StateFile()
             }
             return
@@ -145,6 +166,7 @@ final class StateFileWatcher: ObservableObject {
         do {
             let state = try decoder.decode(StateFile.self, from: data)
             DispatchQueue.main.async {
+                guard self.stateGeneration == capturedGeneration else { return }
                 self.stateFile = state
             }
         } catch {
@@ -152,6 +174,7 @@ final class StateFileWatcher: ObservableObject {
             let emptyState = StateFile()
             writeStateFile(emptyState)
             DispatchQueue.main.async {
+                guard self.stateGeneration == capturedGeneration else { return }
                 self.stateFile = emptyState
             }
         }

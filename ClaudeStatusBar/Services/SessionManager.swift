@@ -96,7 +96,7 @@ final class SessionManager: ObservableObject {
                 self.newProcesses = processes
                 for process in processes {
                     // Don't prompt if we're at max sessions
-                    guard self.sessions.count < Self.maxSessions else { break }
+                    guard self.sessions.count < Self.maxSessions else { continue }
 
                     // Don't prompt if hooks are already registered
                     if self.hookRegistrar.hasHooksRegistered(forProject: process.projectDir) {

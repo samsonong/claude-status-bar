@@ -205,23 +205,35 @@ final class HookRegistrar: @unchecked Sendable {
         let hookCommand = hookScriptPath
 
         for eventName in Self.monitoredEvents {
-            var eventHooks = hooks[eventName] as? [[String: Any]] ?? []
+            var matcherGroups = hooks[eventName] as? [[String: Any]] ?? []
 
-            // Check if our hook is already registered
-            let alreadyRegistered = eventHooks.contains { entry in
-                guard let command = entry["command"] as? String else { return false }
-                return command.contains(Self.hookMarker)
+            // Check if our hook is already registered (new format: matcher+hooks)
+            let alreadyRegistered = matcherGroups.contains { group in
+                guard let groupHooks = group["hooks"] as? [[String: Any]] else {
+                    // Old format entry — check command directly
+                    guard let command = group["command"] as? String else { return false }
+                    return command.contains(Self.hookMarker)
+                }
+                return groupHooks.contains { hook in
+                    guard let command = hook["command"] as? String else { return false }
+                    return command.contains(Self.hookMarker)
+                }
             }
 
             if !alreadyRegistered {
-                let hookEntry: [String: Any] = [
-                    "type": "command",
-                    "command": hookCommand
+                let matcherGroup: [String: Any] = [
+                    "matcher": [String: Any](),
+                    "hooks": [
+                        [
+                            "type": "command",
+                            "command": hookCommand
+                        ]
+                    ]
                 ]
-                eventHooks.append(hookEntry)
+                matcherGroups.append(matcherGroup)
             }
 
-            hooks[eventName] = eventHooks
+            hooks[eventName] = matcherGroups
         }
 
         settings["hooks"] = hooks
@@ -231,6 +243,7 @@ final class HookRegistrar: @unchecked Sendable {
     }
 
     /// Removes hook entries from the given settings.json file.
+    /// Handles both new format (matcher+hooks) and old format (flat command entries).
     private func removeHooks(fromSettingsAt path: String) {
         guard let data = fileManager.contents(atPath: path),
               var settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -240,17 +253,25 @@ final class HookRegistrar: @unchecked Sendable {
         guard var hooks = settings["hooks"] as? [String: Any] else { return }
 
         for eventName in Self.monitoredEvents {
-            guard var eventHooks = hooks[eventName] as? [[String: Any]] else { continue }
+            guard var matcherGroups = hooks[eventName] as? [[String: Any]] else { continue }
 
-            eventHooks.removeAll { entry in
-                guard let command = entry["command"] as? String else { return false }
+            matcherGroups.removeAll { group in
+                // New format: check hooks array inside matcher group
+                if let groupHooks = group["hooks"] as? [[String: Any]] {
+                    return groupHooks.contains { hook in
+                        guard let command = hook["command"] as? String else { return false }
+                        return command.contains(Self.hookMarker)
+                    }
+                }
+                // Old format: check command directly on the entry
+                guard let command = group["command"] as? String else { return false }
                 return command.contains(Self.hookMarker)
             }
 
-            if eventHooks.isEmpty {
+            if matcherGroups.isEmpty {
                 hooks.removeValue(forKey: eventName)
             } else {
-                hooks[eventName] = eventHooks
+                hooks[eventName] = matcherGroups
             }
         }
 
@@ -266,6 +287,7 @@ final class HookRegistrar: @unchecked Sendable {
     /// Checks if our hooks exist in the given settings file.
     /// Returns true only if ALL monitored events have our hook registered,
     /// to detect partial registration from interrupted writes or manual edits.
+    /// Handles both new format (matcher+hooks) and old format (flat command entries).
     private func checkHooksExist(inSettingsAt path: String) -> Bool {
         guard let data = fileManager.contents(atPath: path),
               let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -274,9 +296,17 @@ final class HookRegistrar: @unchecked Sendable {
         }
 
         return Self.monitoredEvents.allSatisfy { eventName in
-            guard let eventHooks = hooks[eventName] as? [[String: Any]] else { return false }
-            return eventHooks.contains { entry in
-                guard let command = entry["command"] as? String else { return false }
+            guard let matcherGroups = hooks[eventName] as? [[String: Any]] else { return false }
+            return matcherGroups.contains { group in
+                // New format: check hooks array inside matcher group
+                if let groupHooks = group["hooks"] as? [[String: Any]] {
+                    return groupHooks.contains { hook in
+                        guard let command = hook["command"] as? String else { return false }
+                        return command.contains(Self.hookMarker)
+                    }
+                }
+                // Old format: check command directly on the entry
+                guard let command = group["command"] as? String else { return false }
                 return command.contains(Self.hookMarker)
             }
         }

@@ -79,12 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
-        guard let pid = userInfo["pid"] as? Int32,
+        guard let pidNumber = userInfo["pid"] as? NSNumber,
               let projectDir = userInfo["projectDir"] as? String else {
             completionHandler()
             return
         }
 
+        let pid = Int32(pidNumber.intValue)
         let process = DetectedProcess(pid: pid, projectDir: projectDir)
 
         switch response.actionIdentifier {

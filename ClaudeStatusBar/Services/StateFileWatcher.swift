@@ -25,6 +25,11 @@ final class StateFileWatcher: ObservableObject {
 
     /// Starts monitoring the state file for changes.
     func startWatching() {
+        // Guard against double-start: if already watching, stop first
+        if dispatchSource != nil {
+            stopWatching()
+        }
+
         // Ensure the directory exists
         let directoryPath = (stateFilePath as NSString).deletingLastPathComponent
         if !fileManager.fileExists(atPath: directoryPath) {

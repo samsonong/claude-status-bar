@@ -28,16 +28,23 @@ final class ProcessDetector: ObservableObject {
     func startPolling() {
         let queue = pollQueue
 
-        // Initial poll
+        // Initial poll — call the static helper directly to avoid crossing
+        // @MainActor isolation through `self` on the background queue.
         queue.async { [weak self] in
-            self?.pollInBackground()
+            let processes = ProcessDetector.findClaudeProcesses()
+            DispatchQueue.main.async {
+                self?.applyPollResults(processes)
+            }
         }
 
         // Schedule recurring polls — capture pollQueue locally to avoid
         // accessing @MainActor-isolated self from the Timer's @Sendable closure.
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             queue.async {
-                self?.pollInBackground()
+                let processes = ProcessDetector.findClaudeProcesses()
+                DispatchQueue.main.async {
+                    self?.applyPollResults(processes)
+                }
             }
         }
     }
@@ -67,17 +74,6 @@ final class ProcessDetector: ObservableObject {
 
     // MARK: - Private
 
-    /// Called from the background poll queue. Finds processes then dispatches
-    /// the filtering and publishing step back to the main actor.
-    private nonisolated func pollInBackground() {
-        let processes = findClaudeProcesses()
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.applyPollResults(processes)
-        }
-    }
-
     /// Filters and publishes poll results. Must run on main actor.
     private func applyPollResults(_ processes: [DetectedProcess]) {
         var result: [DetectedProcess] = []
@@ -95,7 +91,7 @@ final class ProcessDetector: ObservableObject {
         newProcesses = result
     }
 
-    private nonisolated func findClaudeProcesses() -> [DetectedProcess] {
+    private static func findClaudeProcesses() -> [DetectedProcess] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/ps")
         task.arguments = ["-eo", "pid,command"]
@@ -144,7 +140,7 @@ final class ProcessDetector: ObservableObject {
         return results
     }
 
-    private nonisolated func getWorkingDirectory(pid: Int32) -> String? {
+    private static func getWorkingDirectory(pid: Int32) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
         task.arguments = ["-p", "\(pid)", "-Fn", "-d", "cwd"]

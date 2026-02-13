@@ -130,7 +130,8 @@ final class SessionManager: ObservableObject {
                         DispatchQueue.main.async { [weak self] in
                             guard let self else { return }
                             // Re-check after async hop to avoid races
-                            guard !self.notifiedProjectDirs.contains(process.projectDir) else { return }
+                            guard self.sessions.count < Self.maxSessions,
+                                  !self.notifiedProjectDirs.contains(process.projectDir) else { return }
                             self.notifiedProjectDirs.insert(process.projectDir)
                             self.sendNotification(for: process)
                         }

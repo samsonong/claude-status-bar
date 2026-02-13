@@ -175,7 +175,8 @@ final class ProcessDetector: ObservableObject {
         return results
     }
 
-    nonisolated private static func getWorkingDirectory(pid: Int32) -> String? {
+    /// Resolves the working directory for a PID using `lsof`.
+    nonisolated private static func resolveWorkingDirectory(pid: Int32) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
         task.arguments = ["-p", "\(pid)", "-Fn", "-d", "cwd"]
@@ -204,5 +205,40 @@ final class ProcessDetector: ObservableObject {
         }
 
         return nil
+    }
+
+    /// Returns the parent PID for a given process, or `nil` on failure.
+    nonisolated private static func getParentPID(pid: Int32) -> Int32? {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/ps")
+        task.arguments = ["-o", "ppid=", "-p", "\(pid)"]
+
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+
+        do {
+            try task.run()
+        } catch {
+            return nil
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        guard let output = String(data: data, encoding: .utf8) else { return nil }
+
+        return Int32(output.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// Gets the working directory for a PID, falling back to the parent process's
+    /// cwd when the result is "/" (common for Node.js Claude Code processes).
+    nonisolated private static func getWorkingDirectory(pid: Int32) -> String? {
+        guard let dir = resolveWorkingDirectory(pid: pid) else { return nil }
+
+        if dir == "/", let ppid = getParentPID(pid: pid), ppid > 1 {
+            return resolveWorkingDirectory(pid: ppid) ?? dir
+        }
+
+        return dir
     }
 }

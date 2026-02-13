@@ -30,7 +30,7 @@ struct ClaudeStatusBarApp: App {
         MenuBarExtra {
             SessionMenuView(sessionManager: sessionManager)
         } label: {
-            StatusDotsView(sessions: sessionManager.sessions)
+            StatusDotsView(sessions: sessionManager.sessions, newProcesses: sessionManager.newProcesses)
         }
         .menuBarExtraStyle(.window)
     }

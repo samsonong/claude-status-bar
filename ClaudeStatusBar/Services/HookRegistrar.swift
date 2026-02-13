@@ -53,7 +53,7 @@ final class HookRegistrar {
 
         return withSettingsLock(for: settingsPath) {
             mergeHooks(intoSettingsAt: settingsPath)
-        }
+        } ?? false
     }
 
     /// Removes hooks for a project from the appropriate settings file.
@@ -116,7 +116,9 @@ final class HookRegistrar {
 
     /// Executes a closure while holding an exclusive lock on the given settings file.
     /// Uses directory-based locking (mkdir is atomic) consistent with the shell script.
-    private func withSettingsLock<T>(for path: String, body: () -> T) -> T {
+    /// Returns nil if the lock cannot be acquired.
+    @discardableResult
+    private func withSettingsLock<T>(for path: String, body: () -> T) -> T? {
         let lockDir = path + ".lock"
         var acquired = false
         var attempts = 0
@@ -133,8 +135,10 @@ final class HookRegistrar {
         if !acquired {
             // Force-remove potentially stale lock and retry once
             try? fileManager.removeItem(atPath: lockDir)
-            _ = mkdir(lockDir, 0o755)
+            acquired = mkdir(lockDir, 0o755) == 0
         }
+
+        guard acquired else { return nil }
 
         defer { try? fileManager.removeItem(atPath: lockDir) }
         return body()

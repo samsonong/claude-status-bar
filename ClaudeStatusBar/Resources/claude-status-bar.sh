@@ -94,7 +94,7 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 acquire_lock() {
     local max_attempts=10
     local attempt=0
-    local delay=0.01
+    local delay_ms=10
     while ! mkdir "$LOCK_DIR" 2>/dev/null; do
         attempt=$((attempt + 1))
         if [ "$attempt" -ge "$max_attempts" ]; then
@@ -117,8 +117,9 @@ acquire_lock() {
             fi
             return 1
         fi
-        sleep "$delay"
-        delay=$(echo "$delay * 2" | bc)
+        # Sleep using awk for fractional seconds (avoids bc dependency)
+        sleep "$(awk "BEGIN{printf \"%.3f\", $delay_ms/1000}")"
+        delay_ms=$((delay_ms * 2))
     done
     echo $$ > "$LOCK_DIR/pid"
 }

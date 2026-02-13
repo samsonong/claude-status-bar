@@ -143,8 +143,8 @@ final class SessionManager: ObservableObject {
 
     private func startStaleChecking() {
         staleCheckTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
                 // Remove stale idle sessions from the state file so they don't
                 // permanently occupy slots toward the max 5 limit.
                 // Only auto-remove idle sessions — running/pending sessions may
@@ -155,7 +155,6 @@ final class SessionManager: ObservableObject {
                 for id in staleIDs {
                     self.stateFileWatcher.removeSession(id: id)
                 }
-                self.objectWillChange.send()
             }
         }
     }

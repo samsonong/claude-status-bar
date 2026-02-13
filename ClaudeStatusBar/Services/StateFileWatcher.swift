@@ -9,7 +9,7 @@ import os
 final class StateFileWatcher: ObservableObject {
     @Published private(set) var stateFile: StateFile = StateFile()
 
-    private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "StateFileWatcher")
+    nonisolated private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "StateFileWatcher")
     private let stateFilePath: String
     private var fileDescriptor: Int32 = -1
     private var dispatchSource: DispatchSourceFileSystemObject?
@@ -46,7 +46,9 @@ final class StateFileWatcher: ObservableObject {
         // Create the file if it doesn't exist
         if !fileManager.fileExists(atPath: stateFilePath) {
             let emptyState = StateFile()
-            writeStateFile(emptyState)
+            queue.async { [weak self] in
+                self?.writeStateFile(emptyState)
+            }
         }
 
         // Do initial read
@@ -58,8 +60,13 @@ final class StateFileWatcher: ObservableObject {
 
     /// Stops monitoring the state file.
     func stopWatching() {
-        dispatchSource?.cancel()
-        dispatchSource = nil
+        if let source = dispatchSource {
+            source.cancel() // cancel handler closes the fd
+            dispatchSource = nil
+        } else if fileDescriptor >= 0 {
+            // No dispatch source but fd is open (edge case) — close directly
+            close(fileDescriptor)
+        }
         fileDescriptor = -1
     }
 
@@ -68,16 +75,22 @@ final class StateFileWatcher: ObservableObject {
         stateGeneration &+= 1
         var state = stateFile
         state.sessions.removeValue(forKey: id)
-        writeStateFile(state)
         stateFile = state
+        // Write to disk on background queue to avoid blocking main actor
+        queue.async { [weak self] in
+            self?.writeStateFile(state)
+        }
     }
 
     /// Clears all sessions from the state file.
     func clearAllSessions() {
         stateGeneration &+= 1
         let emptyState = StateFile()
-        writeStateFile(emptyState)
         stateFile = emptyState
+        // Write to disk on background queue to avoid blocking main actor
+        queue.async { [weak self] in
+            self?.writeStateFile(emptyState)
+        }
     }
 
     // MARK: - Private
@@ -99,8 +112,10 @@ final class StateFileWatcher: ObservableObject {
                 case .corrupted:
                     Self.logger.warning("State file corrupted, recreating empty state")
                     let emptyState = StateFile()
-                    self.writeStateFile(emptyState)
                     self.stateFile = emptyState
+                    self.queue.async { [weak self] in
+                        self?.writeStateFile(emptyState)
+                    }
                 case .missing:
                     self.stateFile = StateFile()
                 }
@@ -187,12 +202,14 @@ final class StateFileWatcher: ObservableObject {
         source.resume()
     }
 
-    private func writeStateFile(_ state: StateFile) {
+    nonisolated private func writeStateFile(_ state: StateFile) {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
         guard let data = try? encoder.encode(state) else { return }
+
+        let fm = FileManager.default
 
         // Acquire the same mkdir-based lock used by the shell script
         let lockDir = stateFilePath + ".lock"
@@ -204,23 +221,23 @@ final class StateFileWatcher: ObservableObject {
 
         // Atomic write: write to temp file then rename
         let tempPath = stateFilePath + ".tmp"
-        fileManager.createFile(atPath: tempPath, contents: data)
+        fm.createFile(atPath: tempPath, contents: data)
         do {
-            if fileManager.fileExists(atPath: stateFilePath) {
-                _ = try fileManager.replaceItemAt(URL(fileURLWithPath: stateFilePath), withItemAt: URL(fileURLWithPath: tempPath))
+            if fm.fileExists(atPath: stateFilePath) {
+                _ = try fm.replaceItemAt(URL(fileURLWithPath: stateFilePath), withItemAt: URL(fileURLWithPath: tempPath))
             } else {
-                try fileManager.moveItem(atPath: tempPath, toPath: stateFilePath)
+                try fm.moveItem(atPath: tempPath, toPath: stateFilePath)
             }
         } catch {
             Self.logger.warning("replaceItemAt failed, using fallback: \(error.localizedDescription)")
-            try? fileManager.removeItem(atPath: stateFilePath)
-            try? fileManager.moveItem(atPath: tempPath, toPath: stateFilePath)
+            try? fm.removeItem(atPath: stateFilePath)
+            try? fm.moveItem(atPath: tempPath, toPath: stateFilePath)
         }
     }
 
     /// Acquires a directory-based lock consistent with the shell script's locking scheme.
     /// Writes a PID file inside the lock directory so other processes can check liveness.
-    private func acquireLock(at lockDir: String) -> Bool {
+    nonisolated private func acquireLock(at lockDir: String) -> Bool {
         var acquired = false
         var attempts = 0
         let maxAttempts = 10
@@ -244,7 +261,7 @@ final class StateFileWatcher: ObservableObject {
                 }
             }
             // Stale lock (holder is dead or no PID file) — remove and retry once
-            try? fileManager.removeItem(atPath: lockDir)
+            try? FileManager.default.removeItem(atPath: lockDir)
             acquired = mkdir(lockDir, 0o755) == 0
         }
 
@@ -258,7 +275,7 @@ final class StateFileWatcher: ObservableObject {
     }
 
     /// Releases the directory-based lock by removing the lock directory.
-    private func releaseLock(at lockDir: String) {
-        try? fileManager.removeItem(atPath: lockDir)
+    nonisolated private func releaseLock(at lockDir: String) {
+        try? FileManager.default.removeItem(atPath: lockDir)
     }
 }

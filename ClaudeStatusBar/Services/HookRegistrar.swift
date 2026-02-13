@@ -7,6 +7,10 @@ import os
 ///
 /// The registrar merges hook entries without overwriting existing hooks for
 /// the same event names — it appends to the existing arrays.
+///
+/// Safety: `@unchecked Sendable` because this class has no mutable instance state.
+/// All stored properties (`fileManager`, `logger`) are `let`-bound and thread-safe.
+/// All methods are pure functions over file system I/O with no shared mutable state.
 final class HookRegistrar: @unchecked Sendable {
     private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "HookRegistrar")
     private let fileManager = FileManager.default
@@ -106,12 +110,21 @@ final class HookRegistrar: @unchecked Sendable {
             try? fileManager.createDirectory(atPath: targetDir, withIntermediateDirectories: true)
         }
 
-        // Copy from app bundle
+        // Copy from app bundle using temp-then-rename to avoid removing the existing
+        // script before the replacement is confirmed written.
         if let bundledScript = Bundle.main.url(forResource: "claude-status-bar", withExtension: "sh") {
-            try? fileManager.removeItem(atPath: targetPath)
-            try? fileManager.copyItem(at: bundledScript, to: URL(fileURLWithPath: targetPath))
-            // Make executable
-            try? fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: targetPath)
+            let tempPath = targetPath + ".tmp"
+            try? fileManager.removeItem(atPath: tempPath)
+            do {
+                try fileManager.copyItem(at: bundledScript, to: URL(fileURLWithPath: tempPath))
+                try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tempPath)
+                // Atomic replace: only remove old script after new one is ready
+                try? fileManager.removeItem(atPath: targetPath)
+                try fileManager.moveItem(atPath: tempPath, toPath: targetPath)
+            } catch {
+                Self.logger.warning("Failed to install hook script: \(error.localizedDescription)")
+                try? fileManager.removeItem(atPath: tempPath)
+            }
         } else {
             // If bundle resource not found (e.g., during development), create it in place
             if !fileManager.fileExists(atPath: targetPath) {

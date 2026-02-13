@@ -79,7 +79,8 @@ derive_status() {
 STATUS=$(derive_status)
 [ -z "$STATUS" ] && exit 0
 
-PROJECT_NAME=$(basename "$CWD")
+PROJECT_NAME="${CWD:+$(basename "$CWD")}"
+PROJECT_NAME="${PROJECT_NAME:-Unknown Project}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Acquire lock using mkdir (atomic on all filesystems).

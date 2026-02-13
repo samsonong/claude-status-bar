@@ -19,6 +19,7 @@ final class SessionManager: ObservableObject {
     private let stateFileWatcher: StateFileWatcher
     private let processDetector: ProcessDetector
     private let hookRegistrar: HookRegistrar
+    private let hookQueue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.HookRegistrar", qos: .userInitiated)
 
     private var cancellables = Set<AnyCancellable>()
     private var staleCheckTimer: Timer?
@@ -49,7 +50,11 @@ final class SessionManager: ObservableObject {
 
     /// Registers hooks for a project and starts tracking it.
     func registerAndTrack(process: DetectedProcess) {
-        hookRegistrar.registerHooks(forProject: process.projectDir)
+        let registrar = hookRegistrar
+        let projectDir = process.projectDir
+        hookQueue.async {
+            registrar.registerHooks(forProject: projectDir)
+        }
         processDetector.acknowledge(pid: process.pid)
         processDetector.markRegistered(projectDir: process.projectDir)
     }
@@ -68,7 +73,11 @@ final class SessionManager: ObservableObject {
     /// cleaning up hooks.
     func untrackSession(id: String) {
         if let session = sessions.first(where: { $0.id == id }) {
-            hookRegistrar.removeHooks(forProject: session.projectDir)
+            let registrar = hookRegistrar
+            let projectDir = session.projectDir
+            hookQueue.async {
+                registrar.removeHooks(forProject: projectDir)
+            }
         }
         stateFileWatcher.removeSession(id: id)
     }

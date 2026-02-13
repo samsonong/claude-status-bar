@@ -164,9 +164,37 @@ final class StateFileWatcher: ObservableObject {
 
         guard let data = try? encoder.encode(state) else { return }
 
+        // Acquire the same mkdir-based lock used by the shell script
+        let lockDir = stateFilePath + ".lock"
+        guard acquireLock(at: lockDir) else { return }
+        defer { try? fileManager.removeItem(atPath: lockDir) }
+
         // Atomic write: write to temp file then rename
         let tempPath = stateFilePath + ".tmp"
         fileManager.createFile(atPath: tempPath, contents: data)
         try? fileManager.replaceItemAt(URL(fileURLWithPath: stateFilePath), withItemAt: URL(fileURLWithPath: tempPath))
+    }
+
+    /// Acquires a directory-based lock consistent with the shell script's locking scheme.
+    private func acquireLock(at lockDir: String) -> Bool {
+        var acquired = false
+        var attempts = 0
+        let maxAttempts = 10
+
+        while !acquired && attempts < maxAttempts {
+            acquired = mkdir(lockDir, 0o755) == 0
+            if !acquired {
+                attempts += 1
+                usleep(useconds_t(10_000 * (1 << min(attempts, 5)))) // exponential backoff
+            }
+        }
+
+        if !acquired {
+            // Force-remove potentially stale lock and retry once
+            try? fileManager.removeItem(atPath: lockDir)
+            acquired = mkdir(lockDir, 0o755) == 0
+        }
+
+        return acquired
     }
 }

@@ -23,30 +23,20 @@ LOCK_DIR="$STATE_FILE.lock"
 # Read the entire hook event JSON from stdin
 INPUT=$(cat)
 
-# Parse fields using python3 (available on all macOS systems)
-SESSION_ID=$(/usr/bin/python3 -c "
+# Parse all fields in a single python3 invocation (available on all macOS systems)
+PARSED=$(/usr/bin/python3 -c "
 import sys, json
 data = json.loads(sys.argv[1])
 print(data.get('session_id', ''))
-" "$INPUT" 2>/dev/null) || exit 0
-
-HOOK_EVENT=$(/usr/bin/python3 -c "
-import sys, json
-data = json.loads(sys.argv[1])
 print(data.get('hook_event_name', ''))
+print(data.get('cwd', ''))
+print(data.get('tool_name', ''))
 " "$INPUT" 2>/dev/null) || exit 0
 
-CWD=$(/usr/bin/python3 -c "
-import sys, json
-data = json.loads(sys.argv[1])
-print(data.get('cwd', ''))
-" "$INPUT" 2>/dev/null) || CWD=""
-
-TOOL_NAME=$(/usr/bin/python3 -c "
-import sys, json
-data = json.loads(sys.argv[1])
-print(data.get('tool_name', ''))
-" "$INPUT" 2>/dev/null) || TOOL_NAME=""
+SESSION_ID=$(echo "$PARSED" | sed -n '1p')
+HOOK_EVENT=$(echo "$PARSED" | sed -n '2p')
+CWD=$(echo "$PARSED" | sed -n '3p')
+TOOL_NAME=$(echo "$PARSED" | sed -n '4p')
 
 # Exit if we don't have a valid session ID
 [ -z "$SESSION_ID" ] && exit 0

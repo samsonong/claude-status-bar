@@ -123,10 +123,14 @@ final class SessionManager: ObservableObject {
 
     private func startStaleChecking() {
         staleCheckTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            // The isStale property on Session handles the 5-minute check.
-            // We just need to trigger a UI refresh by re-reading sessions.
             guard let self else { return }
             DispatchQueue.main.async {
+                // Remove stale sessions from the state file so they don't
+                // permanently occupy slots toward the max 5 limit.
+                let staleIDs = self.sessions.filter(\.isStale).map(\.id)
+                for id in staleIDs {
+                    self.stateFileWatcher.removeSession(id: id)
+                }
                 self.objectWillChange.send()
             }
         }

@@ -13,12 +13,15 @@
 		749771BFB65A970DEBA3B735 /* claude-status-bar.sh in Resources */ = {isa = PBXBuildFile; fileRef = 3D178FD0A3FB18AC3D623093 /* claude-status-bar.sh */; };
 		75133CE907CC29AA7F3D1419 /* StateFileParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */; };
 		A4E1ADF75EF52EBCFBBAE20E /* HookRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BDFC1618A1EFA640DD51E0A /* HookRegistrar.swift */; };
+		AEDD8797A3E211CF65DC5B75 /* HookRegistrarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09190C4CDF4FBAFEDF1F742E /* HookRegistrarTests.swift */; };
 		AFF9779E28BC0526DB92932B /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B72B221C9BA6DC3770107E1 /* SessionManager.swift */; };
 		CA49DBE896F7312FBB05B847 /* StatusDotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C141D93C8F56C93F912B48 /* StatusDotsView.swift */; };
 		D11C1D10317E13D34531DC89 /* StateFileWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D6D0B3410B89105C9000AF /* StateFileWatcher.swift */; };
 		D573FA5C7F0F7DF4D150031D /* ClaudeStatusBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B04ABEC24B746FC171886C /* ClaudeStatusBarApp.swift */; };
 		D5D6223F0D44EFFD2237C23B /* HookEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD703793B9D2627936D8EEDE /* HookEventTests.swift */; };
 		DFBB5E67958D3E43E1203701 /* ProcessDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 597CE2998B250F432E78116E /* ProcessDetector.swift */; };
+		E01C93AFEE6CFD91D225FDA5 /* ProcessDetectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57091D558D049087953B833C /* ProcessDetectorTests.swift */; };
+		EE5B829F430E8438A619749F /* SessionManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDB77919F699172F6F76CC9 /* SessionManagerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,10 +38,13 @@
 		00C141D93C8F56C93F912B48 /* StatusDotsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDotsView.swift; sourceTree = "<group>"; };
 		0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateFileParsingTests.swift; sourceTree = "<group>"; };
 		03D6D0B3410B89105C9000AF /* StateFileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateFileWatcher.swift; sourceTree = "<group>"; };
+		09190C4CDF4FBAFEDF1F742E /* HookRegistrarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookRegistrarTests.swift; sourceTree = "<group>"; };
 		206E590F2654AAED0A404724 /* SessionMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMenuView.swift; sourceTree = "<group>"; };
+		2DDB77919F699172F6F76CC9 /* SessionManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManagerTests.swift; sourceTree = "<group>"; };
 		39A6B9E93C1A3D602C30EBEB /* ClaudeStatusBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeStatusBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3D178FD0A3FB18AC3D623093 /* claude-status-bar.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "claude-status-bar.sh"; sourceTree = "<group>"; };
 		4B72B221C9BA6DC3770107E1 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		57091D558D049087953B833C /* ProcessDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessDetectorTests.swift; sourceTree = "<group>"; };
 		597CE2998B250F432E78116E /* ProcessDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessDetector.swift; sourceTree = "<group>"; };
 		5BDFC1618A1EFA640DD51E0A /* HookRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookRegistrar.swift; sourceTree = "<group>"; };
 		7E99A16DEE471E8819858157 /* HookEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEvent.swift; sourceTree = "<group>"; };
@@ -92,6 +98,9 @@
 			isa = PBXGroup;
 			children = (
 				CD703793B9D2627936D8EEDE /* HookEventTests.swift */,
+				09190C4CDF4FBAFEDF1F742E /* HookRegistrarTests.swift */,
+				57091D558D049087953B833C /* ProcessDetectorTests.swift */,
+				2DDB77919F699172F6F76CC9 /* SessionManagerTests.swift */,
 				0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */,
 			);
 			path = ClaudeStatusBarTests;
@@ -227,6 +236,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				D5D6223F0D44EFFD2237C23B /* HookEventTests.swift in Sources */,
+				AEDD8797A3E211CF65DC5B75 /* HookRegistrarTests.swift in Sources */,
+				E01C93AFEE6CFD91D225FDA5 /* ProcessDetectorTests.swift in Sources */,
+				EE5B829F430E8438A619749F /* SessionManagerTests.swift in Sources */,
 				75133CE907CC29AA7F3D1419 /* StateFileParsingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

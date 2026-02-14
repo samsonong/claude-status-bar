@@ -44,9 +44,10 @@ HOOK_EVENT=$(echo "$PARSED" | sed -n '2p')
 CWD=$(echo "$PARSED" | sed -n '3p')
 TOOL_NAME=$(echo "$PARSED" | sed -n '4p')
 
-# Exit if we don't have a valid session ID
+# Exit if we don't have a valid session ID or working directory
 [ -z "$SESSION_ID" ] && exit 0
 [ -z "$HOOK_EVENT" ] && exit 0
+[ -z "$CWD" ] && exit 0
 
 # Ensure the state file directory exists
 mkdir -p "$(dirname "$STATE_FILE")"

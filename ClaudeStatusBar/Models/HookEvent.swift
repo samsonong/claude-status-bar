@@ -25,7 +25,7 @@ struct HookEvent: Codable {
     /// | PreToolUse         | tool_name == AskUserQuestion     | pending   |
     /// | PreToolUse         | tool_name != AskUserQuestion     | running   |
     /// | PostToolUse        | --                               | running   |
-    /// | Stop               | --                               | idle      |
+    /// | Stop               | --                               | completed |
     /// | SessionEnd         | --                               | (remove)  |
     var derivedStatus: SessionStatus? {
         switch hookEventName {
@@ -41,7 +41,7 @@ struct HookEvent: Codable {
         case "PostToolUse":
             return .running
         case "Stop":
-            return .idle
+            return .completed
         case "SessionEnd":
             return nil // Signal to remove the session
         default:

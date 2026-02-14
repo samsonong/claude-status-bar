@@ -32,7 +32,7 @@ final class HookEventTests: XCTestCase {
 
     func testStopDerivedStatus() {
         let event = HookEvent(sessionId: "s1", hookEventName: "Stop", cwd: "/tmp", toolName: nil)
-        XCTAssertEqual(event.derivedStatus, .idle)
+        XCTAssertEqual(event.derivedStatus, .completed)
     }
 
     func testSessionEndDerivedStatus() {

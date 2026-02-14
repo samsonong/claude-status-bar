@@ -4,9 +4,10 @@ import UserNotifications
 /// Claude Status Bar — a macOS menu bar app that displays up to 5 colored dots
 /// representing the real-time status of Claude Code sessions.
 ///
-/// - Green dot: session is idle (after Stop event)
+/// - Coral dot: session completed (after Stop event — output ready to review)
+/// - Gray dot: session is idle (clean slate — new, compacted, or cleared)
 /// - Yellow dot: session is waiting for user input (AskUserQuestion)
-/// - Blue dot: session is running (prompt submitted / tool executing)
+/// - Slate dot: session is running (prompt submitted / tool executing)
 ///
 /// The app is menu-bar only (LSUIElement = true) and uses MenuBarExtra
 /// (macOS 13+) for native integration.
@@ -30,7 +31,7 @@ struct ClaudeStatusBarApp: App {
         MenuBarExtra {
             SessionMenuView(sessionManager: sessionManager)
         } label: {
-            StatusDotsView(sessions: sessionManager.sessions, newProcesses: sessionManager.newProcesses)
+            StatusDotsView(sessionManager: sessionManager)
         }
         .menuBarExtraStyle(.window)
     }

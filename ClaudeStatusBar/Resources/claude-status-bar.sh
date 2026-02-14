@@ -12,7 +12,7 @@
 #   UserPromptSubmit   -> running
 #   PreToolUse         -> pending (if AskUserQuestion) / running (otherwise)
 #   PostToolUse        -> running
-#   Stop               -> idle
+#   Stop               -> completed
 #   SessionEnd         -> (remove session)
 
 set -euo pipefail
@@ -71,7 +71,7 @@ derive_status() {
             echo "running"
             ;;
         Stop)
-            echo "idle"
+            echo "completed"
             ;;
         SessionEnd)
             echo "__remove__"

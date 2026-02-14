@@ -4,24 +4,27 @@ import SwiftUI
 /// Represents the current status of a Claude Code session.
 enum SessionStatus: String, Codable, Sendable {
     case idle
+    case completed
     case pending
     case running
-
-    /// The color name used to render this status as a dot in the menu bar.
-    var colorName: String {
-        switch self {
-        case .idle: return "green"
-        case .pending: return "yellow"
-        case .running: return "blue"
-        }
-    }
 
     /// Human-readable label shown in the dropdown menu.
     var label: String {
         switch self {
         case .idle: return "Idle"
+        case .completed: return "Completed"
         case .pending: return "Waiting for input"
         case .running: return "Running"
+        }
+    }
+
+    /// SwiftUI color for this status, matching the menu bar icon palette.
+    var color: Color {
+        switch self {
+        case .running:   return Color(red: 0.35, green: 0.38, blue: 0.45)
+        case .idle:      return Color(red: 0.55, green: 0.55, blue: 0.55)
+        case .completed: return Color(red: 0.78, green: 0.38, blue: 0.32)
+        case .pending:   return Color(red: 0.85, green: 0.55, blue: 0.08)
         }
     }
 }
@@ -42,13 +45,7 @@ struct Session: Codable, Identifiable, Sendable {
 
     /// The dot color for this session, dimmed if stale.
     var dotColor: Color {
-        let baseColor: Color
-        switch status {
-        case .idle: baseColor = .green
-        case .pending: baseColor = .yellow
-        case .running: baseColor = .blue
-        }
-        return isStale ? baseColor.opacity(0.4) : baseColor
+        isStale ? status.color.opacity(0.55) : status.color
     }
 
     enum CodingKeys: String, CodingKey {

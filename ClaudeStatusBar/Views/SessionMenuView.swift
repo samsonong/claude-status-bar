@@ -17,7 +17,7 @@ struct SessionMenuView: View {
         return letters + digits
     }()
 
-    private static let connectingColor = Color(red: 0.30, green: 0.30, blue: 0.55)
+    private static let connectingColor = Color(nsColor: .systemIndigo)
 
     private let gridColumns = Array(repeating: GridItem(.fixed(28), spacing: 2), count: 6)
 
@@ -53,6 +53,21 @@ struct SessionMenuView: View {
             }
 
             Divider()
+
+            HStack {
+                Text("Icon Style")
+                    .font(.system(size: 12))
+                Spacer()
+                Picker("", selection: $sessionManager.iconTheme) {
+                    ForEach(IconTheme.allCases, id: \.self) { theme in
+                        Text(theme.label).tag(theme)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
 
             Toggle("Launch at Login", isOn: Binding(
                 get: { launchAtLogin },
@@ -136,7 +151,7 @@ struct SessionMenuView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(tracked ? Self.connectingColor : Color.gray.opacity(0.6))
+                        .fill(tracked ? Self.connectingColor : Color(nsColor: .systemGray))
                         .frame(width: 8, height: 8)
 
                     Text(SessionManager.displayName(for: process.projectDir))
@@ -196,7 +211,7 @@ struct SessionMenuView: View {
             editingLabelDir = projectDir
         } label: {
             Image(systemName: SessionManager.sfSymbolName(for: currentLabel))
-                .font(.system(size: 14))
+                .font(.system(size: 16))
                 .foregroundColor(.secondary)
         }
         .buttonStyle(.borderless)

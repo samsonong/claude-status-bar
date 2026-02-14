@@ -20,7 +20,7 @@ struct HookEvent: Codable {
     ///
     /// | Hook Event         | Condition                        | Status    |
     /// |--------------------|----------------------------------|-----------|
-    /// | SessionStart       | --                               | running   |
+    /// | SessionStart       | --                               | idle      |
     /// | UserPromptSubmit   | --                               | running   |
     /// | PreToolUse         | tool_name == AskUserQuestion     | pending   |
     /// | PreToolUse         | tool_name != AskUserQuestion     | running   |
@@ -30,7 +30,7 @@ struct HookEvent: Codable {
     var derivedStatus: SessionStatus? {
         switch hookEventName {
         case "SessionStart":
-            return .running
+            return .idle
         case "UserPromptSubmit":
             return .running
         case "PreToolUse":

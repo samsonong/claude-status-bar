@@ -22,6 +22,9 @@ final class SessionManager: ObservableObject {
     /// User-defined custom labels for specific project directories.
     @Published private(set) var customLabels: [String: String] = [:]
 
+    /// The active icon rendering theme for the menu bar.
+    @Published var iconTheme: IconTheme = .apple
+
     private let stateFileWatcher: StateFileWatcher
     private let processDetector: ProcessDetector
     private let hookRegistrar: HookRegistrar
@@ -37,6 +40,10 @@ final class SessionManager: ObservableObject {
         self.processDetector = ProcessDetector()
         self.hookRegistrar = HookRegistrar()
         self.customLabels = UserDefaults.standard.dictionary(forKey: "projectLabels") as? [String: String] ?? [:]
+        if let saved = UserDefaults.standard.string(forKey: "iconTheme"),
+           let theme = IconTheme(rawValue: saved) {
+            self.iconTheme = theme
+        }
 
         setupBindings()
         requestNotificationPermission()
@@ -255,6 +262,14 @@ final class SessionManager: ObservableObject {
     // MARK: - Private
 
     private func setupBindings() {
+        // Persist icon theme changes
+        $iconTheme
+            .dropFirst()
+            .sink { theme in
+                UserDefaults.standard.set(theme.rawValue, forKey: "iconTheme")
+            }
+            .store(in: &cancellables)
+
         // Update sessions whenever state file changes
         stateFileWatcher.$stateFile
             .receive(on: DispatchQueue.main)
@@ -327,8 +342,10 @@ final class SessionManager: ObservableObject {
                 // Only auto-remove idle sessions — running/pending sessions may
                 // be in a long tool execution without hook events, and completed
                 // sessions are intentionally preserved to surface finished output.
+                // Skip sessions whose process is still running (e.g. idle at prompt).
+                let activeProcessDirs = Set(self.detectedProcesses.map(\.projectDir))
                 let staleIDs = self.sessions
-                    .filter { $0.isStale && $0.status == .idle }
+                    .filter { $0.isStale && $0.status == .idle && !activeProcessDirs.contains($0.projectDir) }
                     .map(\.id)
                 for id in staleIDs {
                     self.stateFileWatcher.removeSession(id: id)

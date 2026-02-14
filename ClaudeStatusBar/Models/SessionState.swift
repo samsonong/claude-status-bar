@@ -19,26 +19,25 @@ enum SessionStatus: String, Codable, Sendable {
         }
     }
 
-    /// RGB components for this status. Single source of truth for both SwiftUI and AppKit.
-    private var rgb: (r: Double, g: Double, b: Double) {
+    /// AppKit system color for this status. Uses dynamic NSColor that adapts to light/dark mode.
+    private var systemColor: NSColor {
         switch self {
-        case .running:   return (0.35, 0.38, 0.45)
-        case .idle:      return (0.55, 0.55, 0.55)
-        case .completed: return (0.78, 0.38, 0.32)
-        case .pending:   return (0.85, 0.55, 0.08)
+        case .pending:   return .systemOrange
+        case .completed: return .systemGreen
+        case .running:   return .systemBlue
+        case .idle:      return .systemGray
         }
     }
 
-    /// SwiftUI color for this status, matching the menu bar icon palette.
+    /// SwiftUI color for this status. Wraps the dynamic NSColor so it adapts to light/dark mode.
     var color: Color {
-        let c = rgb
-        return Color(red: c.r, green: c.g, blue: c.b)
+        Color(nsColor: systemColor)
     }
 
     /// AppKit color for this status, used for menu bar icon rendering.
+    /// Uses dynamic NSColor that adapts to light/dark mode.
     var nsColor: NSColor {
-        let c = rgb
-        return NSColor(red: c.r, green: c.g, blue: c.b, alpha: 1.0)
+        systemColor
     }
 }
 
@@ -57,8 +56,9 @@ struct Session: Codable, Identifiable, Sendable {
     }
 
     /// The dot color for this session, dimmed if stale.
+    /// Completed and pending sessions stay at full opacity — they always need attention.
     var dotColor: Color {
-        isStale ? status.color.opacity(0.55) : status.color
+        isStale && status != .pending && status != .completed ? status.color.opacity(0.55) : status.color
     }
 
     enum CodingKeys: String, CodingKey {
@@ -68,6 +68,19 @@ struct Session: Codable, Identifiable, Sendable {
         case projectName = "project_name"
         case lastEvent = "last_event"
         case lastUpdated = "last_updated"
+    }
+}
+
+/// Icon rendering theme for the menu bar.
+enum IconTheme: String, CaseIterable {
+    case apple
+    case bold
+
+    var label: String {
+        switch self {
+        case .apple: return "Apple"
+        case .bold: return "Bold"
+        }
     }
 }
 

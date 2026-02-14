@@ -37,6 +37,7 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         LSUIElement: true
         NSHumanReadableCopyright: "Copyright 2025. All rights reserved."
+        NSDocumentsFolderUsageDescription: "Claude Status Bar needs access to your project folders to register and manage Claude Code hooks."
   ClaudeStatusBarTests:
     type: bundle.unit-test
     platform: macOS

@@ -6,7 +6,7 @@ import AppKit
 struct StatusDotsView: View {
     @ObservedObject var sessionManager: SessionManager
 
-    private let iconSize: CGFloat = 20
+    private let iconSize = NSStatusBar.system.thickness
     private let spacing: CGFloat = 3
 
     /// Flattened list of items to render in the menu bar.
@@ -67,7 +67,7 @@ struct StatusDotsView: View {
     /// Renders all icons into a single NSImage using native SF Symbol palette rendering.
     private func renderMenuBarImage(for items: [(id: String, label: String, color: NSColor)]) -> NSImage {
         let totalWidth = CGFloat(items.count) * iconSize + CGFloat(max(0, items.count - 1)) * spacing
-        let height: CGFloat = 22
+        let height = NSStatusBar.system.thickness
 
         let image = NSImage(size: NSSize(width: totalWidth, height: height), flipped: false) { _ in
             var x: CGFloat = 0
@@ -78,8 +78,15 @@ struct StatusDotsView: View {
                     continue
                 }
 
-                let config = NSImage.SymbolConfiguration(paletteColors: [.white, item.color])
-                    .applying(.init(pointSize: iconSize, weight: .medium))
+                let config: NSImage.SymbolConfiguration
+                switch sessionManager.iconTheme {
+                case .apple:
+                    config = NSImage.SymbolConfiguration(hierarchicalColor: item.color)
+                        .applying(.init(pointSize: iconSize, weight: .semibold))
+                case .bold:
+                    config = NSImage.SymbolConfiguration(paletteColors: [NSColor(white: 0.1, alpha: 1.0), item.color])
+                        .applying(.init(pointSize: iconSize, weight: .semibold))
+                }
                 guard let configured = symbol.withSymbolConfiguration(config) else {
                     x += iconSize + spacing
                     continue
@@ -98,20 +105,18 @@ struct StatusDotsView: View {
 
     // MARK: - Color Palette
     //
-    // Status colors are defined in SessionStatus.rgb (single source of truth).
-    // WCAG AA 3:1 minimum contrast ratios with white (#FFF):
-    //   Completed (coral):         ~3.9:1
-    //   Idle      (muted gray):    ~3.4:1
-    //   Pending   (marigold):      ~3.6:1
-    //   Running   (slate):         ~6.2:1
-    //   Connecting (muted indigo): ~5.0:1
+    // Status colors are defined in SessionStatus.nsColor (Apple system colors).
+    // Themes: .hierarchical uses Apple's auto primary/secondary opacity.
+    //         .vivid uses dark letter on colored fill.
 
-    private static let colorConnecting = NSColor(red: 0.30, green: 0.30, blue: 0.55, alpha: 1.0)
+    private static let colorConnecting = NSColor.systemIndigo
     private static let colorUntracked  = NSColor.systemGray
 
     /// Maps a session's state to an NSColor for the menu bar icon.
+    /// Completed and pending sessions stay at full opacity — they always need attention.
     private func nsColor(for session: Session) -> NSColor {
         let base = session.status.nsColor
-        return session.isStale ? base.withAlphaComponent(0.55) : base
+        let needsAttention = session.status == .pending || session.status == .completed
+        return session.isStale && !needsAttention ? base.withAlphaComponent(0.55) : base
     }
 }

@@ -8,7 +8,7 @@
 # corruption.
 #
 # Status derivation:
-#   SessionStart       -> running
+#   SessionStart       -> idle
 #   UserPromptSubmit   -> running
 #   PreToolUse         -> pending (if AskUserQuestion) / running (otherwise)
 #   PostToolUse        -> running
@@ -56,7 +56,7 @@ mkdir -p "$(dirname "$STATE_FILE")"
 derive_status() {
     case "$HOOK_EVENT" in
         SessionStart)
-            echo "running"
+            echo "idle"
             ;;
         UserPromptSubmit)
             echo "running"

@@ -31,14 +31,6 @@ final class StateFileWatcher: ObservableObject {
         stateFilePath = "\(homeDir)/.claude/claude-status-bar.json"
     }
 
-    /// Note: `deinit` is nonisolated in Swift, but `dispatchSource` and `fileDescriptor`
-    /// are main-actor-isolated. In practice this object lives for the app's lifetime and
-    /// `stop()` is called before termination. `DispatchSource.cancel()` is thread-safe,
-    /// so we just cancel the source here as a safety net.
-    deinit {
-        dispatchSource?.cancel()
-    }
-
     /// Starts monitoring the state file for changes.
     func startWatching() {
         // Guard against double-start: if already watching, stop first

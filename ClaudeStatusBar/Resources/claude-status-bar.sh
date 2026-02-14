@@ -11,7 +11,9 @@
 #   SessionStart       -> idle
 #   UserPromptSubmit   -> running
 #   PreToolUse         -> pending (if AskUserQuestion) / running (otherwise)
+#   PermissionRequest  -> pending
 #   PostToolUse        -> running
+#   PostToolUseFailure -> idle (if is_interrupt) / running (otherwise)
 #   Stop               -> completed
 #   SessionEnd         -> (remove session)
 
@@ -37,12 +39,14 @@ print(data.get('session_id', ''))
 print(data.get('hook_event_name', ''))
 print(data.get('cwd', ''))
 print(data.get('tool_name', ''))
+print('true' if data.get('is_interrupt') else 'false')
 " <<< "$INPUT" 2>/dev/null) || exit 0
 
 SESSION_ID=$(echo "$PARSED" | sed -n '1p')
 HOOK_EVENT=$(echo "$PARSED" | sed -n '2p')
 CWD=$(echo "$PARSED" | sed -n '3p')
 TOOL_NAME=$(echo "$PARSED" | sed -n '4p')
+IS_INTERRUPT=$(echo "$PARSED" | sed -n '5p')
 
 # Exit if we don't have a valid session ID or working directory
 [ -z "$SESSION_ID" ] && exit 0
@@ -68,8 +72,18 @@ derive_status() {
                 echo "running"
             fi
             ;;
+        PermissionRequest)
+            echo "pending"
+            ;;
         PostToolUse)
             echo "running"
+            ;;
+        PostToolUseFailure)
+            if [ "$IS_INTERRUPT" = "true" ]; then
+                echo "idle"
+            else
+                echo "running"
+            fi
             ;;
         Stop)
             echo "completed"

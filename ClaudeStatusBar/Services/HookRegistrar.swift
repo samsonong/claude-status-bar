@@ -20,7 +20,9 @@ final class HookRegistrar: @unchecked Sendable {
         "SessionStart",
         "UserPromptSubmit",
         "PreToolUse",
+        "PermissionRequest",
         "PostToolUse",
+        "PostToolUseFailure",
         "Stop",
         "SessionEnd"
     ]

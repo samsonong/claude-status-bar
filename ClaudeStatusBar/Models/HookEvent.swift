@@ -8,12 +8,14 @@ struct HookEvent: Codable {
     let hookEventName: String
     let cwd: String?
     let toolName: String?
+    let isInterrupt: Bool?
 
     enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
         case hookEventName = "hook_event_name"
         case cwd
         case toolName = "tool_name"
+        case isInterrupt = "is_interrupt"
     }
 
     /// Derives the session status from this hook event based on the status mapping table.
@@ -24,7 +26,10 @@ struct HookEvent: Codable {
     /// | UserPromptSubmit   | --                               | running   |
     /// | PreToolUse         | tool_name == AskUserQuestion     | pending   |
     /// | PreToolUse         | tool_name != AskUserQuestion     | running   |
+    /// | PermissionRequest  | --                               | pending   |
     /// | PostToolUse        | --                               | running   |
+    /// | PostToolUseFailure | is_interrupt == true             | idle      |
+    /// | PostToolUseFailure | is_interrupt != true             | running   |
     /// | Stop               | --                               | completed |
     /// | SessionEnd         | --                               | (remove)  |
     var derivedStatus: SessionStatus? {
@@ -38,8 +43,12 @@ struct HookEvent: Codable {
                 return .pending
             }
             return .running
+        case "PermissionRequest":
+            return .pending
         case "PostToolUse":
             return .running
+        case "PostToolUseFailure":
+            return isInterrupt == true ? .idle : .running
         case "Stop":
             return .completed
         case "SessionEnd":

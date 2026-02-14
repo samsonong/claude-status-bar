@@ -33,6 +33,17 @@ struct SessionMenuView: View {
         }
     }
 
+    /// Sessions sorted by label (0-9a-z) to match menu bar icon order.
+    private var sortedSessions: [Session] {
+        Array(sessionManager.sessions.prefix(SessionManager.maxSessions))
+            .sorted { sessionManager.label(for: $0.projectDir) < sessionManager.label(for: $1.projectDir) }
+    }
+
+    /// Non-session processes sorted by label (0-9a-z).
+    private var sortedProcesses: [DetectedProcess] {
+        nonSessionProcesses.sorted { sessionManager.label(for: $0.projectDir) < sessionManager.label(for: $1.projectDir) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if sessionManager.sessions.isEmpty && nonSessionProcesses.isEmpty {
@@ -41,12 +52,12 @@ struct SessionMenuView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
             } else {
-                ForEach(sessionManager.sessions.prefix(SessionManager.maxSessions)) { session in
+                ForEach(sortedSessions) { session in
                     sessionRow(session)
                     Divider()
                 }
 
-                ForEach(nonSessionProcesses, id: \.projectDir) { process in
+                ForEach(sortedProcesses, id: \.projectDir) { process in
                     processRow(process)
                     Divider()
                 }

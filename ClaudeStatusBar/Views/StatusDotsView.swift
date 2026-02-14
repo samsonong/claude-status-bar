@@ -51,7 +51,7 @@ struct StatusDotsView: View {
             ))
         }
 
-        return items.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }
+        return items.sorted { $0.label < $1.label }
     }
 
     var body: some View {

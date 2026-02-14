@@ -85,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             return
         }
 
-        let pid = Int32(pidNumber.intValue)
+        let pid = pidNumber.int32Value
         let process = DetectedProcess(pid: pid, projectDir: projectDir)
         let actionId = response.actionIdentifier
 

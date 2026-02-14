@@ -319,7 +319,7 @@ final class SessionManager: ObservableObject {
     }
 
     private func startStaleChecking() {
-        staleCheckTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 // Remove stale idle sessions from the state file so they don't
@@ -335,6 +335,9 @@ final class SessionManager: ObservableObject {
                 }
             }
         }
+        // Add to .common mode so the timer fires during menu tracking
+        RunLoop.current.add(timer, forMode: .common)
+        staleCheckTimer = timer
     }
 
     private func requestNotificationPermission() {

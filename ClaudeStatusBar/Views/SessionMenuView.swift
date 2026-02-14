@@ -54,13 +54,16 @@ struct SessionMenuView: View {
 
             Divider()
 
-            Toggle("Launch at Login", isOn: $launchAtLogin)
+            Toggle("Launch at Login", isOn: Binding(
+                get: { launchAtLogin },
+                set: { newValue in
+                    launchAtLogin = newValue
+                    setLaunchAtLogin(newValue)
+                }
+            ))
                 .toggleStyle(.checkbox)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .onChange(of: launchAtLogin) { newValue in
-                    setLaunchAtLogin(newValue)
-                }
 
             Divider()
 

@@ -50,7 +50,7 @@ final class ProcessDetector: ObservableObject {
 
         // Schedule recurring polls — capture pollQueue locally to avoid
         // accessing @MainActor-isolated self from the Timer's @Sendable closure.
-        pollTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             // Capture the cache snapshot on the main thread before dispatching to background
             DispatchQueue.main.async { [weak self] in
                 let currentCache = self?.cwdCache ?? [:]
@@ -62,6 +62,9 @@ final class ProcessDetector: ObservableObject {
                 }
             }
         }
+        // Add to .common mode so the timer fires during menu tracking
+        RunLoop.current.add(timer, forMode: .common)
+        pollTimer = timer
     }
 
     func stopPolling() {
@@ -175,6 +178,7 @@ final class ProcessDetector: ObservableObject {
             // Exclude our own app, grep/ps artifacts, and Claude Desktop
             guard !command.contains("ClaudeStatusBar")
                     && !command.contains("Claude Desktop")
+                    && !command.contains("Claude.app")
                     && !command.contains("grep")
                     && !command.contains("/bin/ps") else { continue }
 

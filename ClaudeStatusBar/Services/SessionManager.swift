@@ -61,25 +61,26 @@ final class SessionManager: ObservableObject {
     }
 
     /// Registers hooks for a project and starts tracking it.
-    /// If hook registration fails, reverts the registration state so the user
-    /// can retry when the process is next detected.
+    /// State changes (acknowledge, markRegistered) are deferred until registration
+    /// succeeds, so a failed attempt allows the process to be re-detected and
+    /// the user re-prompted on the next poll cycle.
     func registerAndTrack(process: DetectedProcess) {
         let registrar = hookRegistrar
         let projectDir = process.projectDir
         let detector = processDetector
         hookQueue.async { [weak self] in
             let success = registrar.registerHooks(forProject: projectDir)
-            if !success {
-                DispatchQueue.main.async {
-                    detector.unregisterProjectDir(projectDir)
-                    detector.unacknowledge(pid: process.pid)
-                    self?.notifiedProjectDirs.remove(projectDir)
+            DispatchQueue.main.async {
+                if success {
+                    detector.acknowledge(pid: process.pid)
+                    detector.markRegistered(projectDir: projectDir)
                 }
+                // Remove from notifiedProjectDirs regardless — on success,
+                // hooks auto-handle future detections; on failure, the user
+                // can be re-prompted.
+                self?.notifiedProjectDirs.remove(projectDir)
             }
         }
-        processDetector.acknowledge(pid: process.pid)
-        processDetector.markRegistered(projectDir: process.projectDir)
-        notifiedProjectDirs.remove(process.projectDir)
     }
 
     /// Dismisses a detected process without registering hooks.
@@ -294,23 +295,22 @@ final class SessionManager: ObservableObject {
                 let registrar = self.hookRegistrar
                 let detector = self.processDetector
                 self.hookQueue.async { [weak self] in
-                    for process in candidates {
-                        // Don't prompt if hooks are already registered
-                        if registrar.hasHooksRegistered(forProject: process.projectDir) {
-                            DispatchQueue.main.async {
+                    // Batch all disk-I/O checks, then dispatch results to main once
+                    let results = candidates.map { process in
+                        (process, registrar.hasHooksRegistered(forProject: process.projectDir))
+                    }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        for (process, alreadyRegistered) in results {
+                            if alreadyRegistered {
                                 detector.acknowledge(pid: process.pid)
                                 detector.markRegistered(projectDir: process.projectDir)
+                            } else {
+                                guard self.sessions.count < Self.maxSessions,
+                                      !self.notifiedProjectDirs.contains(process.projectDir) else { continue }
+                                self.notifiedProjectDirs.insert(process.projectDir)
+                                self.sendNotification(for: process)
                             }
-                            continue
-                        }
-
-                        DispatchQueue.main.async { [weak self] in
-                            guard let self else { return }
-                            // Re-check after async hop to avoid races
-                            guard self.sessions.count < Self.maxSessions,
-                                  !self.notifiedProjectDirs.contains(process.projectDir) else { return }
-                            self.notifiedProjectDirs.insert(process.projectDir)
-                            self.sendNotification(for: process)
                         }
                     }
                 }

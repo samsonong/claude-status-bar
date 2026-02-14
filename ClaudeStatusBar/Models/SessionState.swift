@@ -4,9 +4,9 @@ import SwiftUI
 /// Represents the current status of a Claude Code session.
 enum SessionStatus: String, Codable, Sendable {
     case idle
-    case completed
-    case pending
     case running
+    case pending
+    case completed
 
     /// Human-readable label shown in the dropdown menu.
     var label: String {

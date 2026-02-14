@@ -45,6 +45,9 @@ final class StateFileParsingTests: XCTestCase {
         XCTAssertEqual(session.lastEvent, "UserPromptSubmit")
     }
 
+    /// Tests multi-session decoding. Session s1 uses "idle" with "Stop" to verify
+    /// backward compatibility with state files written before the `completed` status
+    /// was introduced (Stop previously mapped to idle).
     func testStateFileWithMultipleSessionsDecoding() throws {
         let json = """
         {

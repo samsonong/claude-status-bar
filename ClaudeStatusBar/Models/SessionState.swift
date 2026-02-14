@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 
 /// Represents the current status of a Claude Code session.
 enum SessionStatus: String, Codable, Sendable {
@@ -18,14 +19,26 @@ enum SessionStatus: String, Codable, Sendable {
         }
     }
 
+    /// RGB components for this status. Single source of truth for both SwiftUI and AppKit.
+    private var rgb: (r: Double, g: Double, b: Double) {
+        switch self {
+        case .running:   return (0.35, 0.38, 0.45)
+        case .idle:      return (0.55, 0.55, 0.55)
+        case .completed: return (0.78, 0.38, 0.32)
+        case .pending:   return (0.85, 0.55, 0.08)
+        }
+    }
+
     /// SwiftUI color for this status, matching the menu bar icon palette.
     var color: Color {
-        switch self {
-        case .running:   return Color(red: 0.35, green: 0.38, blue: 0.45)
-        case .idle:      return Color(red: 0.55, green: 0.55, blue: 0.55)
-        case .completed: return Color(red: 0.78, green: 0.38, blue: 0.32)
-        case .pending:   return Color(red: 0.85, green: 0.55, blue: 0.08)
-        }
+        let c = rgb
+        return Color(red: c.r, green: c.g, blue: c.b)
+    }
+
+    /// AppKit color for this status, used for menu bar icon rendering.
+    var nsColor: NSColor {
+        let c = rgb
+        return NSColor(red: c.r, green: c.g, blue: c.b, alpha: 1.0)
     }
 }
 

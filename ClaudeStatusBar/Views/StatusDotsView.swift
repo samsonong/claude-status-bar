@@ -98,30 +98,20 @@ struct StatusDotsView: View {
 
     // MARK: - Color Palette
     //
-    // Optimized for white letter overlays on 20pt SF Symbol circles.
-    // All meet WCAG AA 3:1 minimum contrast ratio with white (#FFF).
+    // Status colors are defined in SessionStatus.rgb (single source of truth).
+    // WCAG AA 3:1 minimum contrast ratios with white (#FFF):
     //   Completed (coral):         ~3.9:1
     //   Idle      (muted gray):    ~3.4:1
     //   Pending   (marigold):      ~3.6:1
     //   Running   (slate):         ~6.2:1
     //   Connecting (muted indigo): ~5.0:1
 
-    private static let colorRunning    = NSColor(red: 0.35, green: 0.38, blue: 0.45, alpha: 1.0)
-    private static let colorIdle       = NSColor(red: 0.55, green: 0.55, blue: 0.55, alpha: 1.0)
-    private static let colorCompleted  = NSColor(red: 0.78, green: 0.38, blue: 0.32, alpha: 1.0)
-    private static let colorPending    = NSColor(red: 0.85, green: 0.55, blue: 0.08, alpha: 1.0)
     private static let colorConnecting = NSColor(red: 0.30, green: 0.30, blue: 0.55, alpha: 1.0)
     private static let colorUntracked  = NSColor.systemGray
 
     /// Maps a session's state to an NSColor for the menu bar icon.
     private func nsColor(for session: Session) -> NSColor {
-        let base: NSColor
-        switch session.status {
-        case .idle: base = Self.colorIdle
-        case .completed: base = Self.colorCompleted
-        case .pending: base = Self.colorPending
-        case .running: base = Self.colorRunning
-        }
+        let base = session.status.nsColor
         return session.isStale ? base.withAlphaComponent(0.55) : base
     }
 }

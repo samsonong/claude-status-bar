@@ -351,8 +351,8 @@ final class HookRegistrar: @unchecked Sendable {
         #!/bin/bash
         # claude-status-bar hook script (fallback)
         # The bundled version was not found. Please reinstall the app.
-        echo "claude-status-bar: bundled hook script not found" >&2
-        exit 0
+        echo "claude-status-bar: bundled hook script not found — please reinstall" >&2
+        exit 1
         """
 
         fileManager.createFile(atPath: path, contents: script.data(using: .utf8))

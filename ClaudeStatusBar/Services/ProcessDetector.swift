@@ -15,8 +15,11 @@ struct DetectedProcess: Equatable, Sendable {
 final class ProcessDetector: ObservableObject {
     nonisolated private static let logger = Logger(subsystem: "com.samsonong.ClaudeStatusBar", category: "ProcessDetector")
 
-    /// Newly detected Claude Code processes that aren't yet tracked.
+    /// Newly detected Claude Code processes that aren't yet tracked (for notification logic).
     @Published private(set) var newProcesses: [DetectedProcess] = []
+
+    /// All detected Claude Code processes (unfiltered, for UI display).
+    @Published private(set) var allDetectedProcesses: [DetectedProcess] = []
 
     /// PIDs that have already been seen (prompted or tracked).
     private var knownPIDs: Set<Int32> = []
@@ -88,6 +91,11 @@ final class ProcessDetector: ObservableObject {
         registeredProjectDirs.remove(projectDir)
     }
 
+    /// Checks whether a project directory has hooks registered.
+    func isRegistered(projectDir: String) -> Bool {
+        registeredProjectDirs.contains(projectDir)
+    }
+
     /// Updates known PIDs from currently tracked sessions.
     func updateFromTrackedSessions(_ sessions: [String: Session]) {
         for session in sessions.values {
@@ -99,11 +107,14 @@ final class ProcessDetector: ObservableObject {
 
     /// Filters and publishes poll results. Must run on main actor.
     private func applyPollResults(_ processes: [DetectedProcess]) {
+        // Publish all detected processes for UI consumption
+        allDetectedProcesses = processes
+
+        // Filter for notification candidates (not known, not registered)
         var result: [DetectedProcess] = []
         for process in processes {
             if !knownPIDs.contains(process.pid) && !registeredProjectDirs.contains(process.projectDir) {
                 result.append(process)
-                // Don't add to knownPIDs yet — wait for user acknowledgment
             }
         }
 
@@ -175,11 +186,12 @@ final class ProcessDetector: ObservableObject {
         return results
     }
 
-    /// Resolves the working directory for a PID using `lsof`.
-    nonisolated private static func resolveWorkingDirectory(pid: Int32) -> String? {
+    nonisolated private static func getWorkingDirectory(pid: Int32) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        task.arguments = ["-p", "\(pid)", "-Fn", "-d", "cwd"]
+        // -a is critical: it ANDs the -p and -d filters. Without it lsof
+        // uses OR logic, returning cwds for ALL processes.
+        task.arguments = ["-a", "-p", "\(pid)", "-d", "cwd", "-Fn"]
 
         let pipe = Pipe()
         task.standardOutput = pipe
@@ -205,40 +217,5 @@ final class ProcessDetector: ObservableObject {
         }
 
         return nil
-    }
-
-    /// Returns the parent PID for a given process, or `nil` on failure.
-    nonisolated private static func getParentPID(pid: Int32) -> Int32? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/ps")
-        task.arguments = ["-o", "ppid=", "-p", "\(pid)"]
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = Pipe()
-
-        do {
-            try task.run()
-        } catch {
-            return nil
-        }
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        guard let output = String(data: data, encoding: .utf8) else { return nil }
-
-        return Int32(output.trimmingCharacters(in: .whitespacesAndNewlines))
-    }
-
-    /// Gets the working directory for a PID, falling back to the parent process's
-    /// cwd when the result is "/" (common for Node.js Claude Code processes).
-    nonisolated private static func getWorkingDirectory(pid: Int32) -> String? {
-        guard let dir = resolveWorkingDirectory(pid: pid) else { return nil }
-
-        if dir == "/", let ppid = getParentPID(pid: pid), ppid > 1 {
-            return resolveWorkingDirectory(pid: ppid) ?? dir
-        }
-
-        return dir
     }
 }

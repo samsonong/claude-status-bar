@@ -222,7 +222,6 @@ final class HookRegistrar: @unchecked Sendable {
 
             if !alreadyRegistered {
                 let matcherGroup: [String: Any] = [
-                    "matcher": [String: Any](),
                     "hooks": [
                         [
                             "type": "command",

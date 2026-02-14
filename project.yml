@@ -18,8 +18,8 @@ targets:
         excludes:
           - Resources
           - Info.plist
-    resources:
-      - path: ClaudeStatusBar/Resources
+      - path: ClaudeStatusBar/Resources/claude-status-bar.sh
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.samsonong.ClaudeStatusBar

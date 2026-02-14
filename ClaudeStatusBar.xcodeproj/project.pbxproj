@@ -10,6 +10,7 @@
 		040B9F6D0040D1DBC8C3A805 /* SessionMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206E590F2654AAED0A404724 /* SessionMenuView.swift */; };
 		06E48BA3F2BF6344B0F8EC4A /* SessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C01CEB87210ED4E9810454 /* SessionState.swift */; };
 		6B7D793B407B43E454742B0C /* HookEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E99A16DEE471E8819858157 /* HookEvent.swift */; };
+		749771BFB65A970DEBA3B735 /* claude-status-bar.sh in Resources */ = {isa = PBXBuildFile; fileRef = 3D178FD0A3FB18AC3D623093 /* claude-status-bar.sh */; };
 		75133CE907CC29AA7F3D1419 /* StateFileParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0223DF5E81C8CF9B564A1E62 /* StateFileParsingTests.swift */; };
 		A4E1ADF75EF52EBCFBBAE20E /* HookRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BDFC1618A1EFA640DD51E0A /* HookRegistrar.swift */; };
 		AFF9779E28BC0526DB92932B /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B72B221C9BA6DC3770107E1 /* SessionManager.swift */; };
@@ -36,6 +37,7 @@
 		03D6D0B3410B89105C9000AF /* StateFileWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateFileWatcher.swift; sourceTree = "<group>"; };
 		206E590F2654AAED0A404724 /* SessionMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMenuView.swift; sourceTree = "<group>"; };
 		39A6B9E93C1A3D602C30EBEB /* ClaudeStatusBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeStatusBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3D178FD0A3FB18AC3D623093 /* claude-status-bar.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "claude-status-bar.sh"; sourceTree = "<group>"; };
 		4B72B221C9BA6DC3770107E1 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		597CE2998B250F432E78116E /* ProcessDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessDetector.swift; sourceTree = "<group>"; };
 		5BDFC1618A1EFA640DD51E0A /* HookRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookRegistrar.swift; sourceTree = "<group>"; };
@@ -61,6 +63,7 @@
 			children = (
 				F4AC65AB17F99870CFA7B655 /* ClaudeStatusBar */,
 				A37CD6A573D252F826221333 /* ClaudeStatusBarTests */,
+				A8A0C93673A4E1B781E2F540 /* Resources */,
 				0C33804CB4F9EAEDBC3ACD31 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -94,6 +97,15 @@
 			path = ClaudeStatusBarTests;
 			sourceTree = "<group>";
 		};
+		A8A0C93673A4E1B781E2F540 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				3D178FD0A3FB18AC3D623093 /* claude-status-bar.sh */,
+			);
+			name = Resources;
+			path = ClaudeStatusBar/Resources;
+			sourceTree = "<group>";
+		};
 		B6C72EDECB1A0FE6ACD9EBC0 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -122,6 +134,7 @@
 			buildConfigurationList = CC90ED6202B118BA0E74D92A /* Build configuration list for PBXNativeTarget "ClaudeStatusBar" */;
 			buildPhases = (
 				0E3ABE7F943E72CFD6EF9D48 /* Sources */,
+				7A4C896FE0D92DA3AEE7ACD3 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -180,6 +193,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7A4C896FE0D92DA3AEE7ACD3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				749771BFB65A970DEBA3B735 /* claude-status-bar.sh in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0E3ABE7F943E72CFD6EF9D48 /* Sources */ = {

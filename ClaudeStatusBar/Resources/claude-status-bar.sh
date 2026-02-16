@@ -183,14 +183,21 @@ if 'sessions' not in data:
 if status == '__remove__':
     data['sessions'].pop(session_id, None)
 else:
-    data['sessions'][session_id] = {
-        'id': session_id,
-        'status': status,
-        'project_dir': cwd,
-        'project_name': project_name,
-        'last_event': hook_event,
-        'last_updated': timestamp
-    }
+    existing = data['sessions'].get(session_id)
+    if existing:
+        # Preserve the original project_dir from when the session started
+        existing['status'] = status
+        existing['last_event'] = hook_event
+        existing['last_updated'] = timestamp
+    else:
+        data['sessions'][session_id] = {
+            'id': session_id,
+            'status': status,
+            'project_dir': cwd,
+            'project_name': project_name,
+            'last_event': hook_event,
+            'last_updated': timestamp
+        }
 
 json.dump(data, sys.stdout, indent=2)
 " "$SESSION_ID" "$STATUS" "$CWD" "$PROJECT_NAME" "$HOOK_EVENT" "$TIMESTAMP" <<< "$CURRENT" > "$STATE_FILE.tmp"

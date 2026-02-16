@@ -270,12 +270,27 @@ final class SessionManager: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Update sessions whenever state file changes
+        // Update sessions whenever state file changes.
+        // Deduplicates by project dir, keeping the most active session
+        // (highest status priority, then most recent) so both the menu bar
+        // icons and the dropdown list share a single source of truth.
         stateFileWatcher.$stateFile
             .receive(on: DispatchQueue.main)
             .sink { [weak self] stateFile in
                 guard let self else { return }
-                self.sessions = Array(stateFile.sessions.values)
+                var bestByDir: [String: Session] = [:]
+                for session in stateFile.sessions.values {
+                    if let existing = bestByDir[session.projectDir] {
+                        if session.status.priority > existing.status.priority
+                            || (session.status.priority == existing.status.priority
+                                && session.lastUpdated > existing.lastUpdated) {
+                            bestByDir[session.projectDir] = session
+                        }
+                    } else {
+                        bestByDir[session.projectDir] = session
+                    }
+                }
+                self.sessions = Array(bestByDir.values)
                     .sorted { $0.lastUpdated > $1.lastUpdated }
 
                 // Update process detector with tracked project dirs

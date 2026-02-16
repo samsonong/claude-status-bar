@@ -39,6 +39,17 @@ enum SessionStatus: String, Codable, Sendable {
     var nsColor: NSColor {
         systemColor
     }
+
+    /// Priority for deduplication: higher = more important to show.
+    /// pending (needs attention) > running (active) > completed (done) > idle (inactive).
+    var priority: Int {
+        switch self {
+        case .pending:   return 3
+        case .running:   return 2
+        case .completed: return 1
+        case .idle:      return 0
+        }
+    }
 }
 
 /// A single tracked Claude Code session.

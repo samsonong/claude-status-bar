@@ -10,58 +10,51 @@ struct StatusDotsView: View {
     private let spacing: CGFloat = 3
 
     /// Flattened list of items to render in the menu bar.
+    /// Only includes hook-reported sessions (already deduplicated by SessionManager).
     private var iconItems: [(id: String, label: String, color: NSColor)] {
-        let sessionDirs = Set(sessionManager.sessions.map(\.projectDir))
-        var items: [(id: String, label: String, color: NSColor)] = []
-        var seenDirs = Set<String>()
-
-        // 1. Sessions (have reported via hooks)
-        for session in sessionManager.sessions.prefix(SessionManager.maxSessions) {
-            items.append((
+        sessionManager.sessions.prefix(SessionManager.maxSessions).map { session in
+            (
                 id: "s-\(session.id)",
                 label: sessionManager.label(for: session.projectDir),
                 color: nsColor(for: session)
-            ))
-            seenDirs.insert(session.projectDir)
+            )
         }
-
-        // 2. Tracked processes not yet in sessions
-        for process in sessionManager.detectedProcesses {
-            guard items.count < SessionManager.maxSessions,
-                  sessionManager.isTracked(projectDir: process.projectDir),
-                  !seenDirs.contains(process.projectDir) else { continue }
-            seenDirs.insert(process.projectDir)
-            items.append((
-                id: "t-\(process.projectDir)",
-                label: sessionManager.label(for: process.projectDir),
-                color: Self.colorConnecting
-            ))
-        }
-
-        // 3. Untracked processes
-        for process in sessionManager.detectedProcesses {
-            guard items.count < SessionManager.maxSessions,
-                  !sessionManager.isTracked(projectDir: process.projectDir),
-                  !seenDirs.contains(process.projectDir) else { continue }
-            seenDirs.insert(process.projectDir)
-            items.append((
-                id: "u-\(process.projectDir)",
-                label: sessionManager.label(for: process.projectDir),
-                color: Self.colorUntracked
-            ))
-        }
-
-        return items.sorted { $0.label < $1.label }
+        .sorted { $0.label < $1.label }
     }
 
     var body: some View {
         let items = iconItems
         if items.isEmpty {
-            Image(systemName: "terminal")
-                .font(.system(size: 14))
+            Image(nsImage: renderIdleImage())
         } else {
             Image(nsImage: renderMenuBarImage(for: items))
         }
+    }
+
+    /// Renders a pause.circle.fill icon with idle color for the empty state (no active sessions).
+    private func renderIdleImage() -> NSImage {
+        let height = NSStatusBar.system.thickness
+        let image = NSImage(size: NSSize(width: iconSize, height: height), flipped: false) { _ in
+            guard let symbol = NSImage(systemSymbolName: "pause.circle.fill", accessibilityDescription: "No active sessions") else {
+                return true
+            }
+            let color = SessionStatus.idle.nsColor
+            let config: NSImage.SymbolConfiguration
+            switch sessionManager.iconTheme {
+            case .apple:
+                config = NSImage.SymbolConfiguration(hierarchicalColor: color)
+                    .applying(.init(pointSize: iconSize, weight: .semibold))
+            case .bold:
+                config = NSImage.SymbolConfiguration(paletteColors: [NSColor(white: 0.1, alpha: 1.0), color])
+                    .applying(.init(pointSize: iconSize, weight: .semibold))
+            }
+            guard let configured = symbol.withSymbolConfiguration(config) else { return true }
+            let y = (height - iconSize) / 2
+            configured.draw(in: NSRect(x: 0, y: y, width: iconSize, height: iconSize))
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     /// Renders all icons into a single NSImage using native SF Symbol palette rendering.
@@ -102,15 +95,6 @@ struct StatusDotsView: View {
         image.isTemplate = false
         return image
     }
-
-    // MARK: - Color Palette
-    //
-    // Status colors are defined in SessionStatus.nsColor (Apple system colors).
-    // Themes: .hierarchical uses Apple's auto primary/secondary opacity.
-    //         .vivid uses dark letter on colored fill.
-
-    private static let colorConnecting = NSColor.systemIndigo
-    private static let colorUntracked  = NSColor.systemGray
 
     /// Maps a session's state to an NSColor for the menu bar icon.
     /// Completed and pending sessions stay at full opacity — they always need attention.

@@ -1,0 +1,55 @@
+name: ClaudeStatusBar
+options:
+  bundleIdPrefix: com.samsonong
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: "2.38"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+targets:
+  ClaudeStatusBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: ClaudeStatusBar
+        excludes:
+          - Resources
+          - Info.plist
+      - path: ClaudeStatusBar/Resources/claude-status-bar.sh
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.samsonong.ClaudeStatusBar
+        PRODUCT_NAME: Claude Status Bar
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: false
+        ENABLE_HARDENED_RUNTIME: false
+    info:
+      path: ClaudeStatusBar/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleIconFile: ""
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSUIElement: true
+        NSHumanReadableCopyright: "Copyright 2025. All rights reserved."
+        NSDocumentsFolderUsageDescription: "Claude Status Bar needs access to your project folders to register and manage Claude Code hooks."
+  ClaudeStatusBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: ClaudeStatusBarTests
+    dependencies:
+      - target: ClaudeStatusBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.samsonong.ClaudeStatusBarTests
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: false
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Claude Status Bar.app/Contents/MacOS/Claude Status Bar"
+        BUNDLE_LOADER: "$(TEST_HOST)"

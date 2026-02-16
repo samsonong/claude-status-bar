@@ -1,0 +1,115 @@
+import SwiftUI
+import UserNotifications
+
+/// Claude Status Bar — a macOS menu bar app that displays up to 5 colored dots
+/// representing the real-time status of Claude Code sessions.
+///
+/// - Coral dot: session completed (after Stop event — output ready to review)
+/// - Gray dot: session is idle (clean slate — new, compacted, or cleared)
+/// - Yellow dot: session is waiting for user input (AskUserQuestion)
+/// - Slate dot: session is running (prompt submitted / tool executing)
+///
+/// The app is menu-bar only (LSUIElement = true) and uses MenuBarExtra
+/// (macOS 13+) for native integration.
+@main
+struct ClaudeStatusBarApp: App {
+    @StateObject private var sessionManager: SessionManager
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    init() {
+        let manager = SessionManager()
+        _sessionManager = StateObject(wrappedValue: manager)
+
+        // Start monitoring immediately
+        manager.start()
+
+        // Wire up the app delegate for notification handling
+        AppDelegate.sharedSessionManager = manager
+    }
+
+    var body: some Scene {
+        MenuBarExtra {
+            SessionMenuView(sessionManager: sessionManager)
+        } label: {
+            StatusDotsView(sessionManager: sessionManager)
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
+
+/// App delegate to handle notification responses and app lifecycle.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    /// Shared reference set by the App struct during init.
+    /// Using a static because NSApplicationDelegateAdaptor creates its own instance.
+    /// Access is restricted to the main actor for thread safety.
+    static var sharedSessionManager: SessionManager?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+
+        // Register notification actions for hook registration prompts
+        let trackAction = UNNotificationAction(
+            identifier: "TRACK",
+            title: "Register Hooks",
+            options: []
+        )
+        let dismissAction = UNNotificationAction(
+            identifier: "DISMISS",
+            title: "Dismiss",
+            options: []
+        )
+        let category = UNNotificationCategory(
+            identifier: "HOOK_REGISTRATION",
+            actions: [trackAction, dismissAction],
+            intentIdentifiers: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        Self.sharedSessionManager?.stop()
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        guard let pidNumber = userInfo["pid"] as? NSNumber,
+              let projectDir = userInfo["projectDir"] as? String else {
+            completionHandler()
+            return
+        }
+
+        let pid = pidNumber.int32Value
+        let process = DetectedProcess(pid: pid, projectDir: projectDir)
+        let actionId = response.actionIdentifier
+
+        // Call completion handler immediately so the system can finish notification handling,
+        // then dispatch the actual work to the main actor.
+        completionHandler()
+
+        DispatchQueue.main.async {
+            switch actionId {
+            case "TRACK", UNNotificationDefaultActionIdentifier:
+                Self.sharedSessionManager?.registerAndTrack(process: process)
+            case "DISMISS":
+                Self.sharedSessionManager?.dismissProcess(process)
+            default:
+                break
+            }
+        }
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
+    }
+}

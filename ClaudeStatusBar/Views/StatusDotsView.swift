@@ -10,16 +10,34 @@ struct StatusDotsView: View {
     private let spacing: CGFloat = 3
 
     /// Flattened list of items to render in the menu bar.
-    /// Only includes hook-reported sessions (already deduplicated by SessionManager).
+    /// Includes hook-reported sessions plus detected-but-not-connected processes
+    /// that fit in remaining icon slots.
     private var iconItems: [(id: String, label: String, color: NSColor)] {
-        sessionManager.sessions.prefix(SessionManager.maxSessions).map { session in
+        let sessionIcons = sessionManager.sessions.prefix(SessionManager.maxSessions).map { session in
             (
                 id: "s-\(session.id)",
                 label: sessionManager.label(for: session.projectDir),
                 color: nsColor(for: session)
             )
         }
-        .sorted { $0.label < $1.label }
+
+        let remaining = SessionManager.maxSessions - sessionIcons.count
+        var processIcons: [(id: String, label: String, color: NSColor)] = []
+        if remaining > 0 {
+            let sessionProjectDirs = Set(sessionManager.sessions.map(\.projectDir))
+            processIcons = sessionManager.detectedProcesses
+                .filter { !sessionProjectDirs.contains($0.projectDir) }
+                .prefix(remaining)
+                .map { process in
+                    (
+                        id: "p-\(process.projectDir)",
+                        label: sessionManager.label(for: process.projectDir),
+                        color: NSColor.systemGray.withAlphaComponent(0.55)
+                    )
+                }
+        }
+
+        return (sessionIcons + processIcons).sorted { $0.label < $1.label }
     }
 
     var body: some View {

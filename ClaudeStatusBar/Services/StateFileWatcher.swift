@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AppKit
 import os
 
 /// Watches the state file at ~/.claude/claude-status-bar.json for changes
@@ -13,6 +14,7 @@ final class StateFileWatcher: ObservableObject {
     private let stateFilePath: String
     private var fileDescriptor: Int32 = -1
     private var dispatchSource: DispatchSourceFileSystemObject?
+    private var wakeObserver: NSObjectProtocol?
     private let fileManager = FileManager.default
     private let queue = DispatchQueue(label: "com.samsonong.ClaudeStatusBar.StateFileWatcher", qos: .userInitiated)
 
@@ -62,10 +64,34 @@ final class StateFileWatcher: ObservableObject {
 
         // Open the file for monitoring
         openAndMonitor()
+
+        // Re-open the dispatch source after macOS sleep/wake cycles.
+        // DispatchSourceFileSystemObject can go stale after wake.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.stopMonitor()
+                self.triggerRead()
+                self.openAndMonitor()
+            }
+        }
     }
 
     /// Stops monitoring the state file.
     func stopWatching() {
+        stopMonitor()
+        if let observer = wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            wakeObserver = nil
+        }
+    }
+
+    /// Closes the dispatch source and fd without removing the wake observer.
+    private func stopMonitor() {
         if let source = dispatchSource {
             source.cancel() // cancel handler closes the fd
             dispatchSource = nil

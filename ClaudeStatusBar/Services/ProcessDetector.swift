@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import os
+import Darwin.C
 
 /// Represents a detected Claude Code process.
 struct DetectedProcess: Equatable, Sendable {
@@ -134,55 +135,41 @@ final class ProcessDetector: ObservableObject {
         newProcesses = result
     }
 
+    /// Uses libproc to enumerate all PIDs and find Claude Code processes by executable path.
+    /// No subprocesses are spawned — reads kernel data directly.
     nonisolated private static func findClaudeProcesses(cwdCache: [Int32: String]) -> [DetectedProcess] {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/bin/ps")
-        task.arguments = ["-eo", "pid,command"]
+        // Query the number of active PIDs, then allocate 2x to handle churn
+        let estimatedCount = proc_listallpids(nil, 0)
+        guard estimatedCount > 0 else { return [] }
+        let bufferSize = Int(estimatedCount) * 2
+        var pids = [pid_t](repeating: 0, count: bufferSize)
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = Pipe()
+        let byteCount = proc_listallpids(&pids, Int32(bufferSize * MemoryLayout<pid_t>.size))
+        guard byteCount > 0 else { return [] }
+        let pidCount = Int(byteCount)
 
-        do {
-            try task.run()
-        } catch {
-            logger.warning("Failed to run ps: \(error.localizedDescription)")
-            return []
-        }
-
-        // Read pipe data BEFORE waitUntilExit to avoid deadlock when output
-        // exceeds the pipe buffer size.
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        guard let output = String(data: data, encoding: .utf8) else { return [] }
-
+        // Reuse a single path buffer across the loop
+        var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         var results: [DetectedProcess] = []
-        let lines = output.components(separatedBy: "\n")
 
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { continue }
+        for i in 0..<pidCount {
+            let pid = pids[i]
+            guard pid > 0 else { continue }
 
-            let components = trimmed.split(separator: " ", maxSplits: 1)
-            guard components.count == 2,
-                  let pid = Int32(components[0]) else { continue }
+            let pathLen = proc_pidpath(pid, &pathBuffer, UInt32(MAXPATHLEN))
+            guard pathLen > 0 else { continue }
 
-            // Match lines containing the Claude CLI binary specifically.
-            // Claude Code runs as a Node.js process; the command typically looks like:
-            //   /path/to/node /path/to/claude --args
-            //   claude --args
-            // We use a regex to match the binary name "claude" as a whole word (not as a
-            // substring of "claude-desktop", "ClaudeStatusBar", etc.).
-            let command = String(components[1])
-            guard command.range(of: #"(?:^|/)claude(?:\s|$)"#, options: .regularExpression) != nil else { continue }
-            // Exclude our own app, grep/ps artifacts, and Claude Desktop
-            guard !command.contains("ClaudeStatusBar")
-                    && !command.contains("Claude Desktop")
-                    && !command.contains("Claude.app")
-                    && !command.contains("grep")
-                    && !command.contains("/bin/ps") else { continue }
+            let path = String(cString: pathBuffer)
 
-            // Use cached working directory if available, otherwise call lsof
+            // Match Claude CLI: binary named "claude" or inside the Claude versions directory
+            let lastComponent = (path as NSString).lastPathComponent
+            guard lastComponent == "claude" || path.contains("/.local/share/claude/versions/") else { continue }
+
+            // Exclude our own app and Claude Desktop
+            guard !path.contains("ClaudeStatusBar")
+                    && !path.contains("Claude Desktop")
+                    && !path.contains("Claude.app") else { continue }
+
             let projectDir = cwdCache[pid] ?? getWorkingDirectory(pid: pid) ?? "Unknown"
             results.append(DetectedProcess(pid: pid, projectDir: projectDir))
         }
@@ -190,36 +177,18 @@ final class ProcessDetector: ObservableObject {
         return results
     }
 
+    /// Uses proc_pidinfo with PROC_PIDVNODEPATHINFO to get the working directory.
+    /// No subprocesses are spawned.
     nonisolated private static func getWorkingDirectory(pid: Int32) -> String? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        // -a is critical: it ANDs the -p and -d filters. Without it lsof
-        // uses OR logic, returning cwds for ALL processes.
-        task.arguments = ["-a", "-p", "\(pid)", "-d", "cwd", "-Fn"]
+        var vnodeInfo = proc_vnodepathinfo()
+        let size = MemoryLayout<proc_vnodepathinfo>.size
+        let result = proc_pidinfo(pid, PROC_PIDVNODEPATHINFO, 0, &vnodeInfo, Int32(size))
+        guard result == size else { return nil }
 
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = Pipe()
-
-        do {
-            try task.run()
-        } catch {
-            return nil
-        }
-
-        // Read pipe data BEFORE waitUntilExit to avoid deadlock when output
-        // exceeds the pipe buffer size.
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        task.waitUntilExit()
-        guard let output = String(data: data, encoding: .utf8) else { return nil }
-
-        // lsof output format: lines starting with 'n' contain the path
-        for line in output.components(separatedBy: "\n") {
-            if line.hasPrefix("n") && !line.hasPrefix("n->") {
-                return String(line.dropFirst())
+        return withUnsafePointer(to: vnodeInfo.pvi_cdir.vip_path) { ptr in
+            ptr.withMemoryRebound(to: CChar.self, capacity: Int(MAXPATHLEN)) { cStr in
+                String(cString: cStr)
             }
         }
-
-        return nil
     }
 }

@@ -302,7 +302,9 @@ final class SessionManager: ObservableObject {
         processDetector.$allDetectedProcesses
             .receive(on: DispatchQueue.main)
             .sink { [weak self] processes in
-                self?.detectedProcesses = processes
+                guard let self else { return }
+                self.detectedProcesses = processes
+                self.removeOrphanedSessions()
             }
             .store(in: &cancellables)
 
@@ -352,24 +354,28 @@ final class SessionManager: ObservableObject {
         let timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                // Remove stale idle sessions from the state file so they don't
-                // permanently occupy slots toward the max 5 limit.
-                // Only auto-remove idle sessions — running/pending sessions may
-                // be in a long tool execution without hook events, and completed
-                // sessions are intentionally preserved to surface finished output.
-                // Skip sessions whose process is still running (e.g. idle at prompt).
-                let activeProcessDirs = Set(self.detectedProcesses.map(\.projectDir))
-                let staleIDs = self.sessions
-                    .filter { $0.isStale && $0.status == .idle && !activeProcessDirs.contains($0.projectDir) }
-                    .map(\.id)
-                for id in staleIDs {
-                    self.stateFileWatcher.removeSession(id: id)
-                }
+                // Safety-net fallback for orphan cleanup (covers app-sleep gaps
+                // where the reactive $allDetectedProcesses sink may have missed).
+                self.removeOrphanedSessions()
             }
         }
         // Add to .common mode so the timer fires during menu tracking
         RunLoop.current.add(timer, forMode: .common)
         staleCheckTimer = timer
+    }
+
+    /// Removes sessions whose project directory no longer has an active
+    /// Claude Code process. A 15-second grace period avoids false positives
+    /// during process startup.
+    private func removeOrphanedSessions() {
+        let activeProcessDirs = Set(detectedProcesses.map(\.projectDir))
+        let orphanIDs = sessions
+            .filter { !activeProcessDirs.contains($0.projectDir)
+                      && $0.lastUpdated.timeIntervalSinceNow < -15 }
+            .map(\.id)
+        for id in orphanIDs {
+            stateFileWatcher.removeSession(id: id)
+        }
     }
 
     private func requestNotificationPermission() {
